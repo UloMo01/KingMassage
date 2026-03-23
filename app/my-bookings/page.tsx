@@ -1,41 +1,72 @@
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { BookingsList } from '@/components/bookings/bookings-list'
-import { Calendar } from 'lucide-react'
+import { Calendar, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
-export const metadata = {
-  title: 'My Bookings | King Massage Therapy',
-  description: 'View and manage your massage therapy bookings.',
-}
+export default function MyBookingsPage() {
+  const router = useRouter()
+  const [bookings, setBookings] = useState<any[]>([])
+  const [userId, setUserId] = useState<string>('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string>('')
 
-export default async function MyBookingsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        const supabase = createClient()
+        
+        // Get current user
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        
+        if (authError || !user) {
+          router.push('/auth/login?redirect=/my-bookings')
+          return
+        }
 
-  if (!user) {
-    redirect('/auth/login?redirect=/my-bookings')
+        setUserId(user.id)
+
+        // Fetch bookings for this user
+        const { data, error: bookingError } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('date', { ascending: false })
+
+        if (bookingError) {
+          console.error('Booking fetch error:', bookingError)
+          setError(bookingError.message)
+          setBookings([])
+        } else {
+          console.log('Fetched bookings:', data)
+          setBookings(data || [])
+        }
+      } catch (err) {
+        console.error('Error:', err)
+        setError(err instanceof Error ? err.message : 'An error occurred')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchBookings()
+  }, [router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Header />
+        <main className="flex-1 py-8 px-4">
+          <div className="container mx-auto max-w-3xl flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        </main>
+      </div>
+    )
   }
-
-  console.log('Current user ID:', user.id)
-
-  // Fetch ALL bookings first to debug
-  const { data: allBookings, error: allError } = await supabase
-    .from('bookings')
-    .select('*')
-
-  console.log('All bookings in database:', allBookings)
-  console.log('Error fetching all bookings:', allError)
-
-  // Fetch user's bookings
-  const { data: bookings, error } = await supabase
-    .from('bookings')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('date', { ascending: false })
-
-  console.log('User bookings:', bookings)
-  console.log('Error fetching user bookings:', error)
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -53,14 +84,13 @@ export default async function MyBookingsPage() {
             </div>
           </div>
 
-          {/* Debug info */}
-          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg text-sm">
-            <p><strong>Your User ID:</strong> {user.id}</p>
-            <p><strong>Total bookings found:</strong> {bookings?.length || 0}</p>
-            {error && <p className="text-red-600"><strong>Error:</strong> {error.message}</p>}
-          </div>
+          {error && (
+            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              Error: {error}
+            </div>
+          )}
           
-          <BookingsList bookings={bookings || []} userId={user.id} />
+          <BookingsList bookings={bookings} userId={userId} />
         </div>
       </main>
     </div>
