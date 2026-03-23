@@ -1,166 +1,153 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
-import { createClient } from '@/lib/supabase/client'
-import type { Message } from '@/lib/types'
+import { useState, useEffect } from 'react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Spinner } from '@/components/ui/spinner'
-import { cn } from '@/lib/utils'
-import { Send } from 'lucide-react'
-import { format, parseISO } from 'date-fns'
+import { Scroll } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { format } from 'date-fns'
 
 interface ChatDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   userId: string
-  isAdmin?: boolean
 }
 
-export function ChatDialog({ open, onOpenChange, userId, isAdmin = false }: ChatDialogProps) {
+interface Message {
+  id: string
+  user_id: string
+  message: string
+  created_at: string
+  is_admin: boolean
+}
+
+export function ChatDialog({ open, onOpenChange, userId }: ChatDialogProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (!open || !userId) return
+    if (!open) return
 
     const fetchMessages = async () => {
-      setLoading(true)
-      const { data, error } = await supabase
+      try {
+        const supabase = createClient()
+        const { data } = await supabase
+          .from('messages')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: true })
+
+        setMessages(data || [])
+      } catch (error) {
+        console.error('Error fetching messages:', error)
+      }
+    }
+
+    fetchMessages()
+  }, [open, userId])
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return
+
+    setLoading(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('messages').insert({
+        user_id: userId,
+        message: newMessage,
+        is_admin: false,
+      })
+
+      if (error) throw error
+
+      setNewMessage('')
+      
+      // Refresh messages
+      const { data } = await supabase
         .from('messages')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: true })
 
-      if (!error && data) {
-        setMessages(data)
-      }
+      setMessages(data || [])
+    } catch (error) {
+      console.error('Error sending message:', error)
+    } finally {
       setLoading(false)
     }
-
-    fetchMessages()
-
-    // Set up realtime subscription
-    const channel = supabase
-      .channel(`messages:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          setMessages((prev) => [...prev, payload.new as Message])
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [open, userId, supabase])
-
-  useEffect(() => {
-    // Scroll to bottom when new messages arrive
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
-    }
-  }, [messages])
-
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMessage.trim() || sending) return
-
-    setSending(true)
-    const { error } = await supabase.from('messages').insert({
-      user_id: userId,
-      sender_role: isAdmin ? 'admin' : 'client',
-      message: newMessage.trim(),
-    })
-
-    if (!error) {
-      setNewMessage('')
-    }
-    setSending(false)
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md h-[600px] flex flex-col p-0">
-        <DialogHeader className="p-4 border-b">
-          <DialogTitle>
-            {isAdmin ? 'Chat with Client' : 'Chat with Therapist'}
-          </DialogTitle>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Chat with "King"</DialogTitle>
+          <DialogDescription>Ask questions about your booking</DialogDescription>
         </DialogHeader>
 
-        <ScrollArea ref={scrollRef} className="flex-1 p-4">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Spinner />
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-              No messages yet. Start the conversation!
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {messages.map((msg) => {
-                const isSentByMe = isAdmin
-                  ? msg.sender_role === 'admin'
-                  : msg.sender_role === 'client'
-
-                return (
+        <div className="flex flex-col h-96 space-y-4">
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-3 border rounded-lg p-4 bg-muted/30">
+            {messages.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="text-center">
+                  <Scroll className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No messages yet. Start a conversation!</p>
+                </div>
+              </div>
+            ) : (
+              messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`flex ${msg.is_admin ? 'justify-start' : 'justify-end'}`}
+                >
                   <div
-                    key={msg.id}
-                    className={cn(
-                      'flex flex-col max-w-[80%]',
-                      isSentByMe ? 'ml-auto items-end' : 'items-start'
-                    )}
+                    className={`max-w-xs px-3 py-2 rounded-lg text-sm ${
+                      msg.is_admin
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-foreground'
+                    }`}
                   >
-                    <div
-                      className={cn(
-                        'rounded-2xl px-4 py-2',
-                        isSentByMe
-                          ? 'bg-primary text-primary-foreground rounded-br-sm'
-                          : 'bg-muted rounded-bl-sm'
-                      )}
-                    >
-                      <p className="text-sm">{msg.message}</p>
-                    </div>
-                    <span className="text-xs text-muted-foreground mt-1">
-                      {format(parseISO(msg.created_at), 'h:mm a')}
-                    </span>
+                    <p>{msg.message}</p>
+                    <p className="text-xs opacity-70 mt-1">
+                      {format(new Date(msg.created_at), 'HH:mm')}
+                    </p>
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </ScrollArea>
+                </div>
+              ))
+            )}
+          </div>
 
-        <form onSubmit={handleSend} className="p-4 border-t flex gap-2">
-          <Input
-            placeholder="Type a message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            disabled={sending}
-          />
-          <Button type="submit" size="icon" disabled={sending || !newMessage.trim()}>
-            {sending ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-          </Button>
-        </form>
+          {/* Input */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Type a message..."
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  handleSendMessage()
+                }
+              }}
+              disabled={loading}
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || loading}
+              size="sm"
+            >
+              Send
+            </Button>
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   )
