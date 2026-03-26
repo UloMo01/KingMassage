@@ -3,7 +3,7 @@ import { BookingForm } from '@/components/booking/booking-form'
 import { Leaf } from 'lucide-react'
 
 export const metadata = {
-  title: 'Book Your Session | Serenity Touch',
+  title: 'Book Your Session | Kings Massage',
   description: 'Schedule your personalized massage therapy session with our easy booking system.',
 }
 
