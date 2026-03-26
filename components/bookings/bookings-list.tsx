@@ -6,9 +6,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Empty } from '@/components/ui/empty'
-import { format, parseISO, isPast } from 'date-fns'
+import { format, parseISO, startOfDay, isBefore } from 'date-fns'
 import { Calendar, Clock, MapPin, Sparkles, MessageCircle, CheckCircle, Clock3, XCircle, Loader2 } from 'lucide-react'
 import { ChatDialog } from '@/components/chat/chat-dialog'
+import { CancelDialog } from './cancel-dialog' // Ensure you created this file
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -35,44 +36,56 @@ const STATUS_LABELS = {
 
 export function BookingsList({ bookings, userId }: BookingsListProps) {
   const [chatOpen, setChatOpen] = useState(false)
-  const [cancellingId, setCancellingId] = useState<string | null>(null)
+  const [isCancelModalOpen, setIsCancelModalOpen] = useState(false)
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  
   const router = useRouter()
   const supabase = createClient()
 
-  const handleCancel = async (id: string) => {
-    if (!confirm('Are you sure you want to cancel this booking?')) return
+  const handleOpenCancelModal = (id: string) => {
+    setSelectedBookingId(id)
+    setIsCancelModalOpen(true)
+  }
 
+  const handleConfirmCancel = async () => {
+    if (!selectedBookingId) return
+    
     try {
-      setCancellingId(id)
+      setIsSubmitting(true)
       const { error } = await supabase
         .from('bookings')
         .update({ status: 'cancelled' })
-        .eq('id', id)
+        .eq('id', selectedBookingId)
 
       if (error) throw error
       
-      // Refresh the page to move the booking to the "Past" section
+      setIsCancelModalOpen(false)
       router.refresh()
     } catch (error: any) {
-      alert('Error cancelling booking: ' + error.message)
+      alert('Error: ' + error.message)
     } finally {
-      setCancellingId(null)
+      setIsSubmitting(false)
+      setSelectedBookingId(null)
     }
   }
 
-  // Filter logic: "Upcoming" are future dates that aren't already cancelled/completed
-  const upcomingBookings = bookings.filter(booking => 
-    !isPast(new Date(booking.date)) && 
-    booking.status !== 'cancelled' && 
-    booking.status !== 'completed'
-  )
+  // --- Logic Fix: Using startOfDay so "Today" stays in Upcoming ---
+  const today = startOfDay(new Date())
 
-  // "Past" includes actually past dates OR anything cancelled/completed
-  const pastBookings = bookings.filter(booking => 
-    isPast(new Date(booking.date)) || 
-    booking.status === 'cancelled' || 
-    booking.status === 'completed'
-  )
+  const upcomingBookings = bookings.filter(booking => {
+    const bookingDate = startOfDay(parseISO(booking.date as string))
+    const isFutureOrToday = !isBefore(bookingDate, today)
+    const isActive = booking.status !== 'cancelled' && booking.status !== 'completed'
+    return isFutureOrToday && isActive
+  })
+
+  const pastBookings = bookings.filter(booking => {
+    const bookingDate = startOfDay(parseISO(booking.date as string))
+    const isPastDate = isBefore(bookingDate, today)
+    const isFinalized = booking.status === 'cancelled' || booking.status === 'completed'
+    return isPastDate || isFinalized
+  })
 
   if (bookings.length === 0) {
     return (
@@ -90,7 +103,7 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
 
   return (
     <>
-      {/* Upcoming Bookings Section */}
+      {/* Upcoming Bookings */}
       {upcomingBookings.length > 0 && (
         <div className="mb-12">
           <div className="flex items-center gap-2 mb-4">
@@ -103,20 +116,19 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
                 key={booking.id} 
                 booking={booking} 
                 onChatOpen={() => setChatOpen(true)} 
-                onCancel={() => handleCancel(booking.id)}
-                isCancelling={cancellingId === booking.id}
+                onCancel={() => handleOpenCancelModal(booking.id)}
               />
             ))}
           </div>
         </div>
       )}
 
-      {/* Past/Archived Bookings Section */}
+      {/* Past/Archived Bookings */}
       {pastBookings.length > 0 && (
         <div>
           <div className="flex items-center gap-2 mb-4">
             <CheckCircle className="w-5 h-5 text-muted-foreground" />
-            <h2 className="text-lg font-semibold text-muted-foreground">Past & Cancelled</h2>
+            <h2 className="text-lg font-semibold text-muted-foreground">Past & Activity</h2>
           </div>
           <div className="space-y-4">
             {pastBookings.map((booking) => (
@@ -131,29 +143,28 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
         </div>
       )}
 
+      {/* Premium Dialogs */}
       <ChatDialog 
         open={chatOpen} 
         onOpenChange={setChatOpen} 
         userId={userId}
       />
+
+      <CancelDialog 
+        isOpen={isCancelModalOpen}
+        onClose={() => setIsCancelModalOpen(false)}
+        onConfirm={handleConfirmCancel}
+        isLoading={isSubmitting}
+      />
     </>
   )
 }
 
-interface BookingCardProps {
-  booking: Booking
-  onChatOpen: () => void
-  onCancel?: () => void
-  isPast?: boolean
-  isCancelling?: boolean
-}
-
-function BookingCard({ booking, onChatOpen, onCancel, isPast = false, isCancelling = false }: BookingCardProps) {
-  // Only show cancel button if it's an upcoming, non-finalized booking
+function BookingCard({ booking, onChatOpen, onCancel, isPast = false }: any) {
   const canCancel = !isPast && (booking.status === 'pending' || booking.status === 'approved')
 
   return (
-    <Card className={`overflow-hidden transition-all ${isPast ? 'opacity-70 bg-muted/20 grayscale-[0.5]' : 'border-l-4 border-l-green-600 shadow-sm'}`}>
+    <Card className={`overflow-hidden transition-all ${isPast ? 'opacity-75 bg-muted/20 grayscale-[0.2]' : 'border-l-4 border-l-green-600 shadow-sm'}`}>
       <CardContent className="p-0">
         <div className="flex flex-col md:flex-row">
           <div className="flex-1 p-4 space-y-3">
@@ -186,14 +197,8 @@ function BookingCard({ booking, onChatOpen, onCancel, isPast = false, isCancelli
           </div>
           
           <div className="flex md:flex-col items-center justify-center gap-2 p-4 md:border-l bg-muted/10 md:w-32">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full h-9"
-              onClick={onChatOpen}
-            >
-              <MessageCircle className="w-4 h-4 mr-2" />
-              Chat
+            <Button variant="outline" size="sm" className="w-full h-9" onClick={onChatOpen}>
+              <MessageCircle className="w-4 h-4 mr-2" /> Chat
             </Button>
 
             {canCancel && (
@@ -202,16 +207,8 @@ function BookingCard({ booking, onChatOpen, onCancel, isPast = false, isCancelli
                 size="sm" 
                 className="w-full h-9 text-red-500 hover:text-red-600 hover:bg-red-50"
                 onClick={onCancel}
-                disabled={isCancelling}
               >
-                {isCancelling ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <XCircle className="w-4 h-4 mr-2" />
-                    Cancel
-                  </>
-                )}
+                <XCircle className="w-4 h-4 mr-2" /> Cancel
               </Button>
             )}
           </div>
