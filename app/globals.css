@@ -1,16 +1,12 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
-/* Fix custom variant syntax for proper dark mode support */
 @custom-variant dark (&:where(.dark *));
 
-/* Mobile view enforcement - targeted & non-intrusive */
 :root {
-  /* Lock base viewport to mobile dimensions */
   --app-max-width: 375px;
   --app-padding: 1rem;
-
-  /* Original theme variables (preserved exactly) */
+  /* Original theme variables - unchanged */
   --background: oklch(0.98 0.005 155);
   --foreground: oklch(0.25 0.02 155);
   --card: oklch(1 0 0);
@@ -47,11 +43,9 @@
 }
 
 .dark {
-  /* Mobile view enforcement (dark mode consistent) */
   --app-max-width: 375px;
   --app-padding: 1rem;
-
-  /* Original theme variables (preserved exactly) */
+  /* Original theme variables - unchanged */
   --background: oklch(0.15 0.02 155);
   --foreground: oklch(0.95 0.005 155);
   --card: oklch(0.18 0.02 155);
@@ -86,10 +80,9 @@
   --sidebar-ring: oklch(0.65 0.15 155);
 }
 
-/* Preserve original theme mapping with fixes */
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback', sans-serif; /* Add fallback for reliability */
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace; /* Add fallback */
+  --font-sans: 'Geist', 'Geist Fallback', sans-serif;
+  --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -128,16 +121,13 @@
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* Base styles with mobile enforcement */
 @layer base {
   * {
     @apply border-border outline-ring/50;
     box-sizing: border-box;
   }
 
-  /* Lock app to mobile width */
   html {
-    max-width: var(--app-max-width);
     width: 100%;
     margin: 0 auto;
     overflow-x: hidden;
@@ -155,10 +145,9 @@
   }
 }
 
-/* Add utility class for explicit mobile locking */
 @layer utilities {
   .mobile-lock {
-    max-width: var(--app-max-width);
+    max-width: calc(var(--app-max-width) - 2rem);
     width: 100%;
     margin: 0 auto;
   }
