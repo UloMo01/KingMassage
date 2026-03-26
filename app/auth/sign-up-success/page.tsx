@@ -14,10 +14,9 @@ import {
 export default function Page() {
   const [processing, setProcessing] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isGoogleUser, setIsGoogleUser] = useState(false) // ← ADDED!
+  const [isGoogleUser, setIsGoogleUser] = useState(false)
   const supabase = createClient()
 
-  // Handle Supabase auth code exchange
   useEffect(() => {
     const handleAuthCallback = async () => {
       const urlParams = new URLSearchParams(window.location.search)
@@ -29,10 +28,11 @@ export default function Page() {
       }
 
       try {
+        // Exchange code with cookie-based client
         const { error } = await supabase.auth.exchangeCodeForSession(code)
         if (error) throw error
-        
-        // Check if user signed up with Google
+
+        // Check user provider
         const { data: { user } } = await supabase.auth.getUser()
         if (user?.identities?.[0]?.provider === 'google') {
           setIsGoogleUser(true)
@@ -60,12 +60,13 @@ export default function Page() {
                 : error 
                   ? error 
                   : 'Your account is ready to use.'
-            }</CardDescription>
+              }
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {!processing && !error && (
               <>
-                {isGoogleUser ? ( // ← NOW DEFINED!
+                {isGoogleUser ? (
                   <Link href="/book">
                     <Button className="w-full">Go to Book Appointment</Button>
                   </Link>
