@@ -6,8 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
-import { Sparkles, Clock, Plus } from 'lucide-react'
+import { Sparkles, Clock, Plus, MessageSquare } from 'lucide-react'
 
 export function StepService() {
   const { formData, updateFormData, nextStep } = useBookingStore()
@@ -16,6 +18,7 @@ export function StepService() {
 
   return (
     <div className="space-y-6">
+      {/* Existing Service Selection */}
       <div className="space-y-4">
         <Label className="text-base font-medium flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-primary" />
@@ -45,6 +48,7 @@ export function StepService() {
         </div>
       </div>
 
+      {/* Existing Duration Selection */}
       <div className="space-y-4">
         <Label className="text-base font-medium flex items-center gap-2">
           <Clock className="w-4 h-4 text-primary" />
@@ -68,6 +72,7 @@ export function StepService() {
         </div>
       </div>
 
+      {/* Existing Extra Time Selection */}
       <div className="space-y-4">
         <Label className="text-base font-medium flex items-center gap-2">
           <Plus className="w-4 h-4 text-primary" />
@@ -88,6 +93,86 @@ export function StepService() {
         </div>
       </div>
 
+      {/* NEW: Special Requests Section with Dropdowns */}
+      <div className="space-y-4 border-t pt-4">
+        <Label className="text-base font-medium flex items-center gap-2">
+          <MessageSquare className="w-4 h-4 text-primary" />
+          Session Preferences
+        </Label>
+        
+        {/* Pressure Preference Dropdown */}
+        <div className="space-y-2">
+          <Label htmlFor="pressure-preference">Preferred Pressure Level</Label>
+          <Select 
+            value={formData.pressurePreference} 
+            onValueChange={(value) => updateFormData({ pressurePreference: value })}
+          >
+            <SelectTrigger id="pressure-preference">
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="no-preference">No Preference</SelectItem>
+              <SelectItem value="light">Light</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="firm">Firm/Deep</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Focus Areas Dropdown */}
+        <div className="space-y-2">
+          <Label htmlFor="focus-area">Primary Focus Areas</Label>
+          <Select 
+            value={formData.focusArea} 
+            onValueChange={(value) => updateFormData({ focusArea: value })}
+          >
+            <SelectTrigger id="focus-area">
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="full-body">Full Body (Even Distribution)</SelectItem>
+              <SelectItem value="back-shoulders">Back & Shoulders</SelectItem>
+              <SelectItem value="legs-feet">Legs & Feet</SelectItem>
+              <SelectItem value="neck-upper-back">Neck & Upper Back</SelectItem>
+              <SelectItem value="other">Other (Specify Below)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Additional Requirements Dropdown */}
+        <div className="space-y-2">
+          <Label htmlFor="additional-needs">Additional Needs</Label>
+          <Select 
+            value={formData.additionalNeeds} 
+            onValueChange={(value) => updateFormData({ additionalNeeds: value })}
+          >
+            <SelectTrigger id="additional-needs">
+              <SelectValue placeholder="Select an option" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Special Needs</SelectItem>
+              <SelectItem value="oil-allergy">Oil Allergy</SelectItem>
+              <SelectItem value="table-assistance">Need Table Setup Help</SelectItem>
+              <SelectItem value="quiet-session">Quiet Session (No Conversation)</SelectItem>
+              <SelectItem value="aromatherapy">Aromatherapy Preferred</SelectItem>
+              <SelectItem value="other">Other (Specify Below)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Additional Details Input */}
+        <div className="space-y-2">
+          <Label htmlFor="special-requests">Additional Details (Optional)</Label>
+          <Input
+            id="special-requests"
+            placeholder="Specify allergies, injuries, or extra preferences here..."
+            value={formData.specialRequests || ''}
+            onChange={(e) => updateFormData({ specialRequests: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {/* Existing Continue Button */}
       <Button 
         className="w-full mt-6" 
         size="lg"
