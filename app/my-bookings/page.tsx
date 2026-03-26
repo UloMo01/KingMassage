@@ -4,54 +4,52 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { BookingsList } from '@/components/bookings/bookings-list'
-import { Calendar, Loader2 } from 'lucide-react'
+import { Calendar, Loader2, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export default function MyBookingsPage() {
   const router = useRouter()
   const [bookings, setBookings] = useState<any[]>([])
   const [userId, setUserId] = useState<string>('')
+  const [userName, setUserName] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string>('')
 
-  useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const supabase = createClient()
-        
-        // Get current user
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
-        
-        if (authError || !user) {
-          router.push('/auth/login?redirect=/my-bookings')
-          return
-        }
-
-        setUserId(user.id)
-
-        // Fetch bookings for this user
-        const { data, error: bookingError } = await supabase
-          .from('bookings')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('date', { ascending: false })
-
-        if (bookingError) {
-          console.error('Booking fetch error:', bookingError)
-          setError(bookingError.message)
-          setBookings([])
-        } else {
-          console.log('Fetched bookings:', data)
-          setBookings(data || [])
-        }
-      } catch (err) {
-        console.error('Error:', err)
-        setError(err instanceof Error ? err.message : 'An error occurred')
-      } finally {
-        setLoading(false)
+  const fetchBookings = async () => {
+    try {
+      const supabase = createClient()
+      
+      // 1. Get current authenticated user
+      const { data: { user }, error: authError } = await supabase.auth.getUser()
+      
+      if (authError || !user) {
+        router.push('/auth/login?redirect=/my-bookings')
+        return
       }
-    }
 
+      setUserId(user.id)
+      // Extract name from metadata if available (e.g., from Google Login or Profile)
+      setUserName(user.user_metadata?.full_name || user.email?.split('@')[0] || 'Client')
+
+      // 2. Fetch bookings specifically for this user
+      const { data, error: bookingError } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('date', { ascending: false }) // Initial sort by date
+
+      if (bookingError) throw bookingError
+
+      setBookings(data || [])
+    } catch (err: any) {
+      console.error('Fetch error:', err)
+      setError(err.message || 'Failed to load bookings')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
     fetchBookings()
   }, [router])
 
@@ -59,9 +57,10 @@ export default function MyBookingsPage() {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
-        <main className="flex-1 py-8 px-4">
-          <div className="container mx-auto max-w-3xl flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <main className="flex-1 py-8 px-4 flex items-center justify-center">
+          <div className="text-center space-y-4">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mx-auto" />
+            <p className="text-sm text-muted-foreground animate-pulse">Loading your appointments...</p>
           </div>
         </main>
       </div>
@@ -72,25 +71,37 @@ export default function MyBookingsPage() {
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       
-      <main className="flex-1 py-8 px-4">
+      <main className="flex-1 py-10 px-4">
         <div className="container mx-auto max-w-3xl">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">My Bookings</h1>
-              <p className="text-sm text-muted-foreground">View and manage your appointments</p>
+          
+          {/* Page Header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <Calendar className="w-6 h-6 text-green-600" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold tracking-tight">My Bookings</h1>
+                <p className="text-sm text-muted-foreground">
+                  Hello, {userName}. Here is your session history.
+                </p>
+              </div>
             </div>
           </div>
 
+          {/* Error Message */}
           {error && (
-            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              Error: {error}
+            <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex items-center gap-3 text-destructive text-sm">
+              <AlertCircle className="h-5 w-5" />
+              <span>{error}</span>
             </div>
           )}
           
-          <BookingsList bookings={bookings} userId={userId} />
+          {/* Main Bookings List Component */}
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <BookingsList bookings={bookings} userId={userId} />
+          </div>
+
         </div>
       </main>
     </div>
