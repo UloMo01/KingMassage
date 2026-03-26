@@ -1,37 +1,36 @@
 'use client'
 
-// Add React import to fix Fragment usage in production
 import React, { useState } from 'react'
 import type { Booking } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
-import { 
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
-} from '@/components/ui/table'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { 
-  MoreHorizontal, ChevronDown, ChevronUp, Sparkles, MapPin, 
-  MessageCircle, Check, X 
-} from 'lucide-react'
-import { format, parseISO } from 'date-fns'
-import { ChatDialog } from '@/components/chat/chat-dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { DollarSign } from 'lucide-react'
 
 // Status badge helper
 const getStatusBadge = (status: string) => {
   switch(status) {
     case 'pending': return <Badge className="bg-amber-100 text-amber-800">Pending</Badge>
     case 'approved': return <Badge className="bg-green-100 text-green-800">Approved</Badge>
+    case 'completed': return <Badge className="bg-emerald-100 text-emerald-800">Completed</Badge>
     case 'rejected': return <Badge className="bg-red-100 text-red-800">Rejected</Badge>
     default: return <Badge>{status}</Badge>
   }
 }
 
-// Preference summary helper
-const getPreferenceSummary = (booking: Booking) => {
-  const prefs = []
-  if (booking.pressure_preference) prefs.push(`Pressure: ${booking.pressure_preference.replace('-', ' ')}`)
-  if (booking.focus_area) prefs.push(`Focus: ${booking.focus_area.replace('-', ' ')}`)
-  return prefs.length > 0 ? prefs.join(' • ') : 'No special preferences'
+// Default earnings per service type (matches new services)
+const DEFAULT_SERVICE_EARNINGS = {
+  'Swedish': 600,
+  'Shiatsu': 600,
+  'Thai': 600,
+  'Combination': 600,
+  'Ear Candling': 150,
+  'Hot Stone': 200,
+  'Ventusa': 200,
+  'Fire Massage': 200
 }
 
 interface BookingsTableProps {
@@ -39,38 +38,84 @@ interface BookingsTableProps {
 }
 
 export function BookingsTable({ bookings }: BookingsTableProps) {
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [updating, setUpdating] = useState<string | null>(null)
-  const [chatUserId, setChatUserId] = useState<string | null>(null)
+  const [earningsInputs, setEarningsInputs] = useState<Record<string, number>>({})
+  const [notesInputs, setNotesInputs] = useState<Record<string, string>>({})
+  const [updatingId, setUpdatingId] = useState<string | null>(null)
   const supabase = createClient()
 
-  // Update booking status - production-safe logic
-  const updateBookingStatus = async (id: string, status: 'approved' | 'rejected') => {
-    setUpdating(id)
+  // Initialize earnings inputs with defaults if available
+  React.useEffect(() => {
+    const initialInputs: Record<string, number> = {}
+    const initialNotes: Record<string, string> = {}
+    
+    bookings.forEach(booking => {
+      if (booking.earnings) initialInputs[booking.id] = booking.earnings
+      if (booking.earnings_notes) initialNotes[booking.id] = booking.earnings_notes || ''
+      if (!booking.earnings) initialInputs[booking.id] = DEFAULT_SERVICE_EARNINGS[booking.service as keyof typeof DEFAULT_SERVICE_EARNINGS] || 0
+    })
+
+    setEarningsInputs(initialInputs)
+    setNotesInputs(initialNotes)
+  }, [bookings])
+
+  // Update earnings or notes
+  const handleInputChange = (id: string, type: 'earnings' | 'notes', value: string | number) => {
+    if (type === 'earnings') {
+      setEarningsInputs(prev => ({ ...prev, [id]: Number(value) }))
+    } else {
+      setNotesInputs(prev => ({ ...prev, [id]: value as string }))
+    }
+  }
+
+  // Mark booking as completed with earnings
+  const completeBooking = async (id: string) => {
+    if (earningsInputs[id] === undefined || earningsInputs[id] <= 0) {
+      alert('Please enter valid earnings amount first!')
+      return
+    }
+
+    setUpdatingId(id)
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({
+          status: 'completed',
+          earnings: earningsInputs[id],
+          earnings_notes: notesInputs[id]
+        })
+        .eq('id', id)
+
+      if (error) throw error
+      window.location.reload()
+    } catch (err) {
+      console.error('Failed to complete booking:', err)
+      alert('Error updating booking status')
+    } finally {
+      setUpdatingId(null)
+    }
+  }
+
+  // Update booking status (approve/reject)
+  const updateStatus = async (id: string, status: 'approved' | 'rejected') => {
+    setUpdatingId(id)
     try {
       const { error } = await supabase
         .from('bookings')
         .update({ status })
         .eq('id', id)
-      
+
       if (error) throw error
-      // Force fresh data fetch on success
       window.location.reload()
     } catch (err) {
       console.error('Failed to update status:', err)
+      alert('Error updating booking status')
     } finally {
-      setUpdating(null)
+      setUpdatingId(null)
     }
-  }
-
-  // Toggle expanded row
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id)
   }
 
   return (
     <div className="space-y-4">
-      {/* Table Container */}
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -78,144 +123,88 @@ export function BookingsTable({ bookings }: BookingsTableProps) {
               <TableHead>Client</TableHead>
               <TableHead>Service</TableHead>
               <TableHead>Date & Time</TableHead>
-              <TableHead>Location</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Earnings (PHP)</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {bookings.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No bookings found
+            {bookings.map(booking => (
+              <TableRow key={booking.id}>
+                <TableCell>
+                  <div className="font-medium">{booking.name}</div>
+                  <div className="text-sm text-muted-foreground">{booking.users.email}</div>
+                </TableCell>
+                <TableCell>{booking.service}</TableCell>
+                <TableCell>
+                  <div>{new Date(booking.created_at).toLocaleDateString('en-PH')}</div>
+                  <div className="text-sm text-muted-foreground">{booking.time}</div>
+                </TableCell>
+                <TableCell>{getStatusBadge(booking.status)}</TableCell>
+                <TableCell>
+                  {booking.status === 'completed' ? (
+                    <div className="font-medium">₱{(booking.earnings || 0).toLocaleString('en-PH')}</div>
+                  ) : (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <DollarSign size={16} />
+                        <Input
+                          type="number"
+                          min="0"
+                          value={earningsInputs[booking.id] || ''}
+                          onChange={(e) => handleInputChange(booking.id, 'earnings', e.target.value)}
+                          className="w-24 text-sm"
+                        />
+                      </div>
+                      <Input
+                        placeholder="Notes (optional)"
+                        value={notesInputs[booking.id] || ''}
+                        onChange={(e) => handleInputChange(booking.id, 'notes', e.target.value)}
+                        className="w-full text-xs"
+                      />
+                    </div>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-2">
+                    {booking.status === 'pending' && (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => updateStatus(booking.id, 'approved')}
+                          disabled={updatingId === booking.id}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => updateStatus(booking.id, 'rejected')}
+                          disabled={updatingId === booking.id}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    {booking.status === 'approved' && (
+                      <Button
+                        size="sm"
+                        onClick={() => completeBooking(booking.id)}
+                        disabled={updatingId === booking.id || !earningsInputs[booking.id]}
+                      >
+                        {updatingId === booking.id ? 'Processing...' : 'Complete'}
+                      </Button>
+                    )}
+                    {booking.status === 'completed' && (
+                      <Badge className="bg-emerald-100 text-emerald-800">Finalized</Badge>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
-            ) : (
-              bookings.map((booking) => (
-                <React.Fragment key={booking.id}>
-                  {/* Main Row */}
-                  <TableRow className="cursor-pointer" onClick={() => toggleExpand(booking.id)}>
-                    <TableCell>
-                      <div className="font-medium">{booking.name}</div>
-                      <div className="text-xs text-muted-foreground">{booking.users.email}</div>
-                    </TableCell>
-                    <TableCell>{booking.service}</TableCell>
-                    <TableCell>
-                      <div>{format(parseISO(booking.date), 'MMM d, yyyy')}</div>
-                      <div className="text-xs text-muted-foreground">{booking.time}</div>
-                    </TableCell>
-                    <TableCell className="truncate max-w-[200px]">
-                      <div className="flex items-center gap-1">
-                        <MapPin size={14} />
-                        <span>{booking.location}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        {booking.status === 'pending' && (
-                          <>
-                            <Button 
-                              size="sm" 
-                              className="bg-green-600 hover:bg-green-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                updateBookingStatus(booking.id, 'approved')
-                              }}
-                              disabled={updating === booking.id}
-                            >
-                              Approve
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              className="bg-red-600 hover:bg-red-700"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                updateBookingStatus(booking.id, 'rejected')
-                              }}
-                              disabled={updating === booking.id}
-                            >
-                              Reject
-                            </Button>
-                          </>
-                        )}
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setChatUserId(booking.user_id)
-                          }}
-                        >
-                          <MessageCircle size={16} />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-
-                  {/* Expanded Details Row */}
-                  {expandedId === booking.id && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="p-4 bg-muted/50">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          <div>
-                            <h4 className="font-medium mb-2">Client Details</h4>
-                            <p><strong>Name:</strong> {booking.name}</p>
-                            <p><strong>Phone:</strong> {booking.mobile}</p>
-                            <p><strong>Email:</strong> {booking.users.email}</p>
-                          </div>
-                          <div>
-                            <h4 className="font-medium mb-2">Session Info</h4>
-                            <p><strong>Duration:</strong> {booking.duration} mins</p>
-                            <p><strong>Preferences:</strong> {getPreferenceSummary(booking)}</p>
-                            {booking.special_requests && (
-                              <p><strong>Notes:</strong> {booking.special_requests}</p>
-                            )}
-                          </div>
-                          <div>
-                            <h4 className="font-medium mb-2">Admin Notes</h4>
-                            <p className="text-sm text-muted-foreground">
-                              Update status or message client to confirm details
-                            </p>
-                            {booking.status !== 'approved' && booking.status !== 'rejected' && (
-                              <div className="flex gap-2 mt-2">
-                                <Button 
-                                  size="sm" 
-                                  className="bg-green-600"
-                                  onClick={() => updateBookingStatus(booking.id, 'approved')}
-                                  disabled={updating === booking.id}
-                                >
-                                  <Check size={14} className="mr-1" /> Approve
-                                </Button>
-                                <Button 
-                                  size="sm" 
-                                  className="bg-red-600"
-                                  onClick={() => updateBookingStatus(booking.id, 'rejected')}
-                                  disabled={updating === booking.id}
-                                >
-                                  <X size={14} className="mr-1" /> Reject
-                                </Button>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </React.Fragment>
-              ))
-            )}
+            ))}
           </TableBody>
         </Table>
       </div>
-
-      {/* Chat Dialog */}
-      <ChatDialog 
-        open={!!chatUserId} 
-        onOpenChange={(open) => !open && setChatUserId(null)} 
-        userId={chatUserId || ''}
-        isAdmin
-      />
     </div>
   )
 }
