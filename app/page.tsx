@@ -55,34 +55,23 @@ const PRICING = [
 
 const REVIEWS = [
   {
-    name: 'Maria Santos',
+    name: 'Sir Jo',
     rating: 5,
-    massage: 'Swedish Massage',
-    review: 'Amazing experience! John is a true professional. The Swedish massage was exactly what I needed. Highly recommended!',
+    massage: 'Combination',
+    review: 'Salamat sa massage mo. Kaya nga since 2024 ikaw lagi regular therapist ko. Maayos ang massage, alam mong marunong talaga and experienced. See you again soon!',
   },
   {
     name: 'Sir G',
     rating: 5,
-    massage: 'Thai Massage',
+    massage: 'Combination',
     review: 'Hello. Thank you pala kagabe nwla ang sakit ng likod ko. Legit yung masahe mo bawat hagod snisigurado mo na ok sa client mo . Nrelax ako super as in . Nawala yung sakit ng likod at balakang ko.Ang gling ng masahe mo nkahanap nko ng mggng regular therapist ko .na legit tlaga yung massage .Till next time ulit .',
   },
-  {
-    name: 'Angela Fernandez',
-    rating: 5,
-    massage: 'Shiatsu',
-    review: 'Professional, punctual, and incredibly skilled. The Shiatsu massage relieved my back pain completely.',
-  },
+
   {
     name: 'Roberto Dela Cruz',
     rating: 5,
     massage: 'Combination Massage',
     review: 'Love the personalized approach. The combination massage was tailored perfectly to my needs. Booking my next session soon!',
-  },
-  {
-    name: 'Lisa Mendoza',
-    rating: 5,
-    massage: 'Swedish Massage',
-    review: 'Exceptional service! John\'s professionalism and attention to detail made me feel completely relaxed. Worth every peso!',
   },
 ]
 
@@ -98,13 +87,13 @@ export default function HomePage() {
           <div className="container relative mx-auto max-w-4xl text-center">
             <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-2 text-sm text-primary mb-6">
               <Leaf className="w-4 h-4" />
-              King Massage Therapy
+              King's Massage Therapy
             </div>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight mb-6 text-balance">
               Relax. Recharge. We Come to You.
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 text-pretty">
-              Experience therapeutic massage tailored to your needs, delivered to your doorstep by "King", a certified professional with years of expertise.
+              Experience therapeutic massage tailed to your needs, delivered to your doorstep by "King", a certified professional with years of expertise.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button size="lg" className="text-base" asChild>
@@ -120,51 +109,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Business Info Section */}
-        <section className="py-16 px-4 bg-card border-y">
-          <div className="container mx-auto max-w-5xl">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold mb-4">King's Massage</h2>
-              <p className="text-muted-foreground text-lg mb-8">Professional Home Service Massage</p>
-            </div>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardContent className="p-6">
-                  <MapPinIcon className="w-8 h-8 text-primary mb-4" />
-                  <h3 className="font-semibold mb-2">Location</h3>
-                  <p className="text-sm text-muted-foreground">San Rosa, Laguna, Philippines</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6">
-                  <Phone className="w-8 h-8 text-primary mb-4" />
-                  <h3 className="font-semibold mb-2">Mobile</h3>
-                  <p className="text-sm text-muted-foreground">+63 9XX XXX XXXX</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6">
-                  <Mail className="w-8 h-8 text-primary mb-4" />
-                  <h3 className="font-semibold mb-2">Email</h3>
-                  <p className="text-sm text-muted-foreground">kingmassage.therapy@gmail.com</p>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="p-6">
-                  <Clock className="w-8 h-8 text-primary mb-4" />
-                  <h3 className="font-semibold mb-2">Hours</h3>
-                  <p className="text-sm text-muted-foreground">Mon-Sun: 8:30 AM - 3:00 SM</p>
-                </CardContent>
-              </Card>
-            </div>
-            <div className="mt-8 p-6 bg-primary/5 rounded-lg border border-primary/10">
-              <h3 className="font-semibold mb-2">🧑‍💼 Business Owner</h3>
-              <p className="text-muted-foreground mb-4">King</p>
-              <h3 className="font-semibold mb-2">📋 Service Type</h3>
-              <p className="text-muted-foreground">Home service massage (client location required)</p>
-            </div>
-          </div>
-        </section>
 
         {/* Features Section */}
         <section className="py-16 px-4">
