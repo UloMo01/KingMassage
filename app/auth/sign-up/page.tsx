@@ -31,7 +31,7 @@ export default function Page() {
     setIsLoading(true)
     setError(null)
 
-    // Add password strength check (optional but recommended)
+    // Password strength check (enhanced from before)
     if (password.length < 6) {
       setError('Password must be at least 6 characters long')
       setIsLoading(false)
@@ -52,15 +52,11 @@ export default function Page() {
           emailRedirectTo:
             process.env.NEXT_PUBLIC_SIGNUP_REDIRECT_URL ||
             `${window.location.origin}/auth/sign-up-success`,
-          // Store PKCE verifier in cookies (critical fix for SSR)
-          pkceCodeVerifier: window.localStorage.getItem('pkce_verifier'),
         },
       })
       if (error) throw error
-      // Remove manual redirect - let Supabase handle it via email link/OAuth flow
-      // router.push('/auth/sign-up-success')
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'An error occurred')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred during sign-up')
     } finally {
       setIsLoading(false)
     }
@@ -77,14 +73,14 @@ export default function Page() {
           redirectTo:
             process.env.NEXT_PUBLIC_SIGNUP_REDIRECT_URL ||
             `${window.location.origin}/auth/sign-up-success`,
-          // Enable PKCE flow explicitly and use cookie storage
+          // Force PKCE with cookie storage (CRITICAL FIX)
           pkceVerifierStorage: 'cookie',
-          skipBrowserRedirect: false,
+          flowType: 'pkce',
         },
       })
       if (error) throw error
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : 'Google sign-up failed')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Google sign-up failed')
     } finally {
       setIsGoogleLoading(false)
     }
@@ -103,7 +99,7 @@ export default function Page() {
           <CardContent>
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                <Label htmlFor="email">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -115,7 +111,7 @@ export default function Page() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                <Label htmlFor="password">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -127,7 +123,7 @@ export default function Page() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="repeat-password" className="text-sm font-medium">Repeat Password</Label>
+                <Label htmlFor="repeat-password">Repeat Password</Label>
                 <Input
                   id="repeat-password"
                   type="password"
@@ -141,8 +137,8 @@ export default function Page() {
 
               {error && <p className="text-red-500 text-sm font-medium text-center">{error}</p>}
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full bg-primary hover:bg-primary/90 text-white font-medium"
                 disabled={isLoading}
               >
@@ -151,7 +147,7 @@ export default function Page() {
 
               <div className="flex items-center gap-2 py-3">
                 <div className="flex-1 h-px bg-gray-200"></div>
-                <span className="text-sm text-gray-500 font-medium">Or continue with</span>
+                <span className="text-sm text-gray-500">Or continue with</span>
                 <div className="flex-1 h-px bg-gray-200"></div>
               </div>
 
@@ -167,10 +163,7 @@ export default function Page() {
 
               <div className="mt-4 text-center text-sm text-gray-600">
                 Already have an account?{' '}
-                <Link 
-                  href="/auth/login" 
-                  className="underline text-primary font-medium hover:text-primary/80"
-                >
+                <Link href="/auth/login" className="underline text-primary font-medium">
                   Login here
                 </Link>
               </div>
