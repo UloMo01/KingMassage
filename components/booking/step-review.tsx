@@ -1,263 +1,159 @@
+// FILE: step-review.tsx
 'use client'
 
-import React, { useState } from 'react'
 import { useBookingStore } from '@/lib/booking-store'
 import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { ChevronDown, Plus, Clock, ClipboardList, Info } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Calendar, Clock, User, Massage, PlusCircle, CheckCircle } from 'lucide-react'
 
-// Define add-on services
-const ADD_ON_SERVICES = [
-  { name: 'None', price: 0 },
-  { name: 'Ear Candling', price: 150 },
-  { name: 'Hot Stone', price: 200 },
-  { name: 'Ventusa', price: 200 },
-  { name: 'Fire Massage', price: 200 }
-]
+export function StepReview() {
+  const { formData, prevStep, resetForm } = useBookingStore()
+  const { calculateTotalDuration } = useBookingStore()
+  const totalDuration = calculateTotalDuration()
 
-export function SessionDetailsStep() {
-  const { formData, updateFormData, nextStep } = useBookingStore()
-  const [expandedExtraTime, setExpandedExtraTime] = useState(false)
-
-  // Handle duration selection
-  const selectDuration = (duration: number) => {
-    updateFormData({ duration })
+  // Calculate pricing (adjust base prices to match your actual service costs)
+  const BASE_SERVICE_PRICES = {
+    Swedish: 600,
+    Shiatsu: 650,
+    Thai: 700,
+    Combination: 750
   }
-
-  // Handle extra time selection
-  const selectExtraTime = (extraMinutes: number) => {
-    updateFormData({ extraMinutes })
-  }
-
-  // Handle add-on selection
-  const selectAddOn = (addOn: string, price: number) => {
-    updateFormData({
-      addOnService: addOn,
-      addOnPrice: price
-    })
-  }
+  const basePrice = BASE_SERVICE_PRICES[formData.service as keyof typeof BASE_SERVICE_PRICES] || 0
+  const extraTimePrice = formData.extraMinutes === 15 ? 100 : formData.extraMinutes === 30 ? 200 : 0
+  const totalPrice = basePrice + extraTimePrice + formData.addOnPrice
 
   return (
     <div className="space-y-6">
-      {/* Session Duration Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Clock className="h-5 w-5 text-green-600" />
-          <h3 className="text-lg font-semibold">Session Duration</h3>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant={formData.duration === 60 ? 'default' : 'outline'}
-            onClick={() => selectDuration(60)}
-            className="py-3"
-          >
-            60 minutes
-          </Button>
-          <Button
-            variant={formData.duration === 90 ? 'default' : 'outline'}
-            onClick={() => selectDuration(90)}
-            className="py-3"
-          >
-            90 minutes
-          </Button>
-          <Button
-            variant={formData.duration === 120 ? 'default' : 'outline'}
-            onClick={() => selectDuration(120)}
-            className="py-3"
-          >
-            120 minutes
-          </Button>
-          <Button
-            variant={formData.duration === 150 ? 'default' : 'outline'}
-            onClick={() => selectDuration(150)}
-            className="py-3"
-          >
-            150 minutes
-          </Button>
-        </div>
+      <h3 className="text-xl font-semibold text-center">Review Your Booking</h3>
+      <p className="text-sm text-muted-foreground text-center">Please confirm all details before submitting</p>
 
-        {/* Extra Time (Optional) */}
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => setExpandedExtraTime(!expandedExtraTime)}
-            className="flex items-center gap-2 text-sm font-medium text-green-600"
-          >
-            <Plus className="h-4 w-4" />
-            Extra Time (Optional)
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${expandedExtraTime ? 'rotate-180' : ''}`}
-            />
-          </button>
+      {/* Service & Duration Summary */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Massage className="h-5 w-5 text-primary" />
+            Service Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Treatment Type:</span>
+            <span>{formData.service}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Total Duration:</span>
+            <span>{totalDuration} minutes</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Pressure Preference:</span>
+            <span>{formData.pressurePreference}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Focus Area:</span>
+            <span>{formData.focusArea}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Add-On Service:</span>
+            <span>{formData.addOnService || 'None'}</span>
+          </div>
+        </CardContent>
+      </Card>
 
-          {expandedExtraTime && (
-            <div className="grid grid-cols-2 gap-3 mt-2">
-              <Button
-                variant={formData.extraMinutes === 0 ? 'default' : 'outline'}
-                onClick={() => selectExtraTime(0)}
-                className="py-2"
-              >
-                No extra time
-              </Button>
-              <Button
-                variant={formData.extraMinutes === 15 ? 'default' : 'outline'}
-                onClick={() => selectExtraTime(15)}
-                className="py-2"
-              >
-                +15 minutes
-              </Button>
-              <Button
-                variant={formData.extraMinutes === 30 ? 'default' : 'outline'}
-                onClick={() => selectExtraTime(30)}
-                className="py-2 col-span-2"
-              >
-                +30 minutes
-              </Button>
+      {/* Schedule Summary */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Calendar className="h-5 w-5 text-primary" />
+            Schedule
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Date:</span>
+            <span>{formData.date ? new Date(formData.date).toLocaleDateString('en-PH', {
+              year: 'numeric', month: 'long', day: 'numeric'
+            }) : 'Not selected'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Time:</span>
+            <span>{formData.time || 'Not selected'}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Contact & Personal Details */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <User className="h-5 w-5 text-primary" />
+            Your Details
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Name:</span>
+            <span>{formData.name || 'Not provided'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Mobile Number:</span>
+            <span>{formData.mobile || 'Not provided'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Location:</span>
+            <span>{formData.location || 'Not provided'}</span>
+          </div>
+          {formData.specialRequests && (
+            <div className="flex justify-between items-start">
+              <span className="text-muted-foreground">Additional Notes:</span>
+              <span className="text-sm">{formData.specialRequests}</span>
             </div>
           )}
-        </div>
+        </CardContent>
+      </Card>
+
+      {/* Pricing Summary */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <PlusCircle className="h-5 w-5 text-primary" />
+            Pricing Summary
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Base Service:</span>
+            <span>₱{basePrice.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Extra Time:</span>
+            <span>₱{extraTimePrice.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Add-On:</span>
+            <span>₱{formData.addOnPrice.toLocaleString()}</span>
+          </div>
+          <hr className="my-2" />
+          <div className="flex justify-between font-medium">
+            <span>Total Amount:</span>
+            <span className="text-lg text-primary">₱{totalPrice.toLocaleString()}</span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3 mt-4">
+        <Button variant="outline" className="flex-1" onClick={prevStep}>
+          Back
+        </Button>
+        <Button className="flex-1" onClick={() => {
+          // Add booking submission logic here (e.g., API call)
+          alert('Booking submitted successfully!')
+          resetForm()
+        }}>
+          <CheckCircle className="mr-2 h-4 w-4" />
+          Submit Booking
+        </Button>
       </div>
-
-      <hr className="border-gray-200" />
-
-      {/* Session Preferences Section */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <ClipboardList className="h-5 w-5 text-green-600" />
-          <h3 className="text-lg font-semibold">Session Preferences</h3>
-        </div>
-
-        <div className="space-y-3">
-          {/* Preferred Pressure Level */}
-          <div className="space-y-2">
-            <Label className="text-sm">Preferred Pressure Level</Label>
-            <Select
-              value={formData.pressurePreference}
-              onValueChange={(val) => updateFormData({ pressurePreference: val })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select pressure level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="no-preference">No Preference</SelectItem>
-                <SelectItem value="light">Light</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="firm">Firm/Deep</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Primary Focus Areas */}
-          <div className="space-y-2">
-            <Label className="text-sm">Primary Focus Areas</Label>
-            <Select
-              value={formData.focusArea}
-              onValueChange={(val) => updateFormData({ focusArea: val })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select focus area" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="full-body">Full Body (Even Distribution)</SelectItem>
-                <SelectItem value="back-shoulders">Back & Shoulders</SelectItem>
-                <SelectItem value="legs-feet">Legs & Feet</SelectItem>
-                <SelectItem value="neck-upper-back">Neck & Upper Back</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Additional Needs */}
-          <div className="space-y-2">
-            <Label className="text-sm">Additional Needs</Label>
-            <Select
-              value={formData.additionalNeeds}
-              onValueChange={(val) => updateFormData({ additionalNeeds: val })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select additional needs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No Special Needs</SelectItem>
-                <SelectItem value="oil-allergy">Oil Allergy</SelectItem>
-                <SelectItem value="table-assistance">Needs Table Setup Help</SelectItem>
-                <SelectItem value="quiet-session">Quiet Session (No Conversation)</SelectItem>
-                <SelectItem value="aromatherapy">Aromatherapy Preferred</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Additional Details */}
-          <div className="space-y-2">
-            <Label className="text-sm">Additional Details (Optional)</Label>
-            <Input
-              placeholder="Specify allergies, injuries, or extra preferences..."
-              value={formData.specialRequests || ''}
-              onChange={(e) => updateFormData({ specialRequests: e.target.value })}
-            />
-          </div>
-        </div>
-      </div>
-
-      <hr className="border-gray-200" />
-
-      {/* --- ADD-ON SERVICES SECTION (AFTER SESSION PREFERENCES) --- */}
-      <div className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Plus className="h-5 w-5 text-green-600" />
-          <h3 className="text-lg font-semibold">Add-On Services</h3>
-        </div>
-
-        {/* Note about additional 15 minutes */}
-        <div className="flex items-start gap-2 p-3 bg-amber-50 rounded-md text-amber-800 text-sm">
-          <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
-          <p><strong>Important Note:</strong> All add-on services include an additional 15 minutes added to your total session duration.</p>
-        </div>
-
-        <div className="space-y-3">
-          <Label className="text-sm">Select Add-On (Optional)</Label>
-          <Select
-            value={formData.addOnService || 'None'}
-            onValueChange={(val) => {
-              const selected = ADD_ON_SERVICES.find(s => s.name === val)
-              selectAddOn(selected.name, selected.price)
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Choose an add-on service" />
-            </SelectTrigger>
-            <SelectContent>
-              {ADD_ON_SERVICES.map(service => (
-                <SelectItem 
-                  key={service.name} 
-                  value={service.name}
-                >
-                  {service.name} {service.price > 0 ? `(+₱${service.price})` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {formData.addOnService && formData.addOnService !== 'None' && (
-            <div className="p-2 bg-green-50 rounded-md text-sm text-green-700">
-              ✔ {formData.addOnService} added (+₱{formData.addOnPrice} | +15 minutes to total duration)
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Continue Button */}
-      <Button
-        className="w-full py-6 text-base font-medium"
-        onClick={nextStep}
-        disabled={!formData.duration}
-      >
-        Continue to Schedule
-      </Button>
     </div>
   )
 }
