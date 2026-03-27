@@ -8,11 +8,6 @@ export const metadata = {
   description: 'Manage professional massage bookings and client requests.',
 }
 
-// CRITICAL: This ensures that every time you click "Approve" and the page 
-// refreshes, it gets the absolute latest data from Supabase.
-export const revalidate = 0;
-export const dynamic = 'force-dynamic';
-
 export default async function AdminPage() {
   const supabase = await createClient()
   
@@ -29,40 +24,55 @@ export default async function AdminPage() {
     .eq('id', user.id)
     .single()
 
-  if (!userData || userData.role !== 'admin') {
+  if (userData?.role !== 'admin') {
     redirect('/')
   }
 
-  // 3. Fetch Bookings 
-  // We fetch everything (*) to make sure the BookingsTable has all 
-  // the fields like 'pressure_preference' and 'add_ons'
+  // 3. Fetch Bookings with UPDATED column names from your database
   const { data: bookings, error: bookingError } = await supabase
     .from('bookings')
-    .select('*')
+    .select(`
+      id,
+      user_id,
+      name,
+      mobile,
+      location,
+      service,
+      date,
+      time,
+      duration,
+      extra_minutes,
+      status,
+      payment_proof_url,
+      created_at,
+      pressure_preference,
+      focus_area,
+      additional_needs,
+      special_requests,
+      add_ons,
+      total_price,
+      earnings
+    `)
     .order('created_at', { ascending: false })
 
   if (bookingError) {
+    // This will help you see if there are still column mismatches in your terminal
     console.error('❌ Database Fetch Error:', bookingError.message)
   }
 
-  // 4. Fetch Client list (Matched to your Clients tab)
-  const { data: users, error: userError } = await supabase
+  // 4. Fetch Client list
+  const { data: users } = await supabase
     .from('users')
     .select('*')
     .eq('role', 'client')
     .order('created_at', { ascending: false })
 
-  if (userError) {
-    console.error('❌ User Fetch Error:', userError.message)
-  }
-
   return (
-    // Clean slate-50 background to make your white tiles "pop"
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-slate-50/50">
       <Suspense fallback={<AdminLoading />}>
         <AdminDashboard 
-          initialBookings={bookings || []} 
-          initialUsers={users || []} 
+          bookings={bookings || []} 
+          users={users || []} 
         />
       </Suspense>
     </main>
@@ -72,10 +82,9 @@ export default async function AdminPage() {
 function AdminLoading() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white">
-      {/* Matching your emerald-500 brand color */}
-      <div className="w-12 h-12 border-4 border-slate-100 border-t-emerald-500 rounded-full animate-spin mb-4" />
-      <p className="text-slate-400 font-bold animate-pulse text-[10px] uppercase tracking-[0.2em]">
-        Loading King's Massage...
+      <div className="w-12 h-12 border-4 border-slate-200 border-t-emerald-500 rounded-full animate-spin mb-4" />
+      <p className="text-slate-500 font-bold animate-pulse text-sm uppercase tracking-widest">
+        Loading King's Massage Dashboard...
       </p>
     </div>
   )
