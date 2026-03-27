@@ -1,15 +1,15 @@
 'use client'
 
-import React, { useState } from 'react'; // Add React import for production safety
+import React, { useState } from 'react';
 import type { User, Booking } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  Mail, Phone, Calendar, Clock, User as UserIcon, 
-  ChevronDown, ChevronUp, Separator 
+  Mail, Calendar, ChevronDown, ChevronUp, 
+  UserCircle, MessageSquare, Phone, History 
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Separator as UiSeparator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 
 interface ClientsListProps {
   users: User[];
@@ -18,94 +18,118 @@ interface ClientsListProps {
 
 export function ClientsList({ users, bookings }: ClientsListProps) {
   const [expandedClientId, setExpandedClientId] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Get booking data for a client (with FULL null safety)
-  const getClientBookings = (clientId: string) => {
+  const getClientStats = (clientId: string) => {
     const clientBookings = bookings.filter(b => b.user_id === clientId);
+    const sorted = [...clientBookings].sort((a, b) => 
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+    
     return {
       total: clientBookings.length,
       approved: clientBookings.filter(b => b.status === 'approved').length,
       pending: clientBookings.filter(b => b.status === 'pending').length,
-      latest: clientBookings.sort((a, b) => 
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      )[0] || null
+      latest: sorted[0] || null
     };
   };
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Registered Clients</CardTitle>
-      </CardHeader>
-      <CardContent className="divide-y">
-        {users.length === 0 ? (
-          <p className="text-center py-8 text-muted-foreground">No clients registered yet</p>
-        ) : (
-          users.map((user) => {
-            const bookingStats = getClientBookings(user.id);
-            const isExpanded = expandedClientId === user.id;
+  const filteredUsers = users.filter(user => 
+    user.email.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-            // Safe date parsing
+  return (
+    <div className="space-y-6 pb-24">
+      {/* Search Header */}
+      <div className="px-1 space-y-4">
+        <Input 
+          placeholder="Search bookings or clients..." 
+          className="bg-white border-slate-200 rounded-xl h-12 shadow-sm"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        <h2 className="text-lg font-bold text-slate-800">
+          Registered Clients <span className="text-slate-400 font-normal">({users.length})</span>
+        </h2>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4">
+        {filteredUsers.length === 0 ? (
+          <p className="text-center py-8 text-slate-400">No clients found</p>
+        ) : (
+          filteredUsers.map((user) => {
+            const stats = getClientStats(user.id);
+            const isExpanded = expandedClientId === user.id;
             const joinDate = user.created_at 
               ? new Date(user.created_at).toLocaleDateString() 
               : 'N/A';
 
             return (
-              <div key={user.id} className="py-4">
-                {/* Client Header Row */}
-                <div 
-                  className="flex items-center justify-between cursor-pointer"
-                  onClick={() => setExpandedClientId(isExpanded ? null : user.id)}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                      {user.email.charAt(0).toUpperCase()}
+              <Card key={user.id} className="overflow-hidden border-none shadow-sm ring-1 ring-slate-200">
+                <CardContent className="p-0">
+                  {/* Main Row */}
+                  <div 
+                    className="p-4 flex items-center gap-4 bg-slate-50/50 cursor-pointer"
+                    onClick={() => setExpandedClientId(isExpanded ? null : user.id)}
+                  >
+                    <div className="h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-700">
+                      <UserCircle className="h-6 w-6" />
                     </div>
-                    <div>
-                      <p className="font-medium">{user.email}</p>
-                      <p className="text-xs text-muted-foreground">Joined {joinDate}</p>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-slate-900 truncate text-sm">{user.email}</h3>
+                      <p className="text-[10px] text-slate-500">Joined {joinDate}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[10px]">
+                        {stats.total} {stats.total === 1 ? 'Booking' : 'Bookings'}
+                      </Badge>
+                      {isExpanded ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge variant="secondary">
-                      {bookingStats.total} {bookingStats.total === 1 ? 'Booking' : 'Bookings'}
-                    </Badge>
-                    <Button variant="ghost" size="icon">
-                      {isExpanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                    </Button>
-                  </div>
-                </div>
 
-                {/* Expanded Details (Safe for production) */}
-                {isExpanded && (
-                  <div className="mt-3 pl-13 space-y-3">
-                    <UiSeparator />
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-sm font-medium">Contact Info</p>
-                        <p className="text-xs text-muted-foreground">User ID: {user.id.slice(0, 8)}...</p>
-                        <p className="text-xs text-muted-foreground">Email: {user.email}</p>
-                        <p className="text-xs text-muted-foreground">Join Date: {joinDate}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Booking Stats</p>
-                        <p className="text-xs text-muted-foreground">
-                          {bookingStats.approved} Approved • {bookingStats.pending} Pending
-                        </p>
-                        {bookingStats.latest && (
-                          <div className="mt-2 p-2 bg-muted/50 rounded-md">
-                            <p className="text-xs">Latest: {bookingStats.latest?.service} ({bookingStats.latest?.status})</p>
+                  {/* Expanded Details */}
+                  {isExpanded && (
+                    <div className="border-t bg-white">
+                      <div className="p-4 space-y-4">
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold text-slate-400">Contact Info</p>
+                            <p className="text-xs text-slate-600">User ID: {user.id.slice(0, 8)}...</p>
+                            <p className="text-xs text-slate-600">Email: {user.email}</p>
+                            <p className="text-xs text-slate-600">Join Date: {joinDate}</p>
                           </div>
-                        )}
+                          <div className="space-y-1">
+                            <p className="text-[10px] uppercase font-bold text-slate-400">Booking Stats</p>
+                            <p className="text-xs text-slate-600">
+                              {stats.approved} Approved • {stats.pending} Pending
+                            </p>
+                            {stats.latest && (
+                              <div className="mt-2 flex items-center gap-2 text-xs font-medium text-slate-700">
+                                <History size={14} className="text-slate-400" />
+                                Latest: {stats.latest.service} ({stats.latest.status})
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Mobile Actions */}
+                        <div className="flex gap-2 pt-2">
+                          <Button variant="outline" className="flex-1 h-9 text-xs border-slate-200 gap-2">
+                            <MessageSquare size={14} /> SMS
+                          </Button>
+                          <Button className="flex-1 h-9 text-xs bg-slate-900 text-white gap-2">
+                            <Phone size={14} /> Call
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </CardContent>
+              </Card>
             );
           })
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
