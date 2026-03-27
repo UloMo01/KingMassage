@@ -21,7 +21,7 @@ export function AdminBookingCard({ booking, onApprove, onReject, onComplete }: A
   const status = booking.status?.toLowerCase()
 
   return (
-    <div className="w-full bg-white rounded-[2.5rem] border-none shadow-sm ring-1 ring-slate-100 overflow-hidden mb-4">
+    <div className="w-full max-w-3xl bg-white rounded-[2.5rem] shadow-sm ring-1 ring-slate-100 overflow-hidden mb-4">
       {/* 1. Main Header Row */}
       <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -43,7 +43,9 @@ export function AdminBookingCard({ booking, onApprove, onReject, onComplete }: A
             "px-4 py-1.5 rounded-full text-[10px] font-black uppercase border-none tracking-widest",
             status === 'pending' ? "bg-amber-100 text-amber-600" : 
             status === 'approved' ? "bg-emerald-100 text-emerald-600" : 
-            "bg-blue-100 text-blue-600"
+            status === 'completed' ? "bg-blue-100 text-blue-600" :
+            status === 'rejected' ? "bg-red-100 text-red-600" :
+            "bg-slate-100 text-slate-500"
           )}>
             {status}
           </Badge>
@@ -80,9 +82,11 @@ export function AdminBookingCard({ booking, onApprove, onReject, onComplete }: A
                 {booking.add_on_service} (+₱{booking.add_on_price})
               </Badge>
             )}
-            <Badge className="bg-amber-50 text-amber-700 border-none font-bold text-xs px-4 py-2 rounded-2xl shadow-sm">
-              +15m Extension
-            </Badge>
+            {booking.extension && (
+              <Badge className="bg-amber-50 text-amber-700 border-none font-bold text-xs px-4 py-2 rounded-2xl shadow-sm">
+                +{booking.extension}m Extension
+              </Badge>
+            )}
           </div>
         </div>
 
@@ -116,7 +120,7 @@ export function AdminBookingCard({ booking, onApprove, onReject, onComplete }: A
             {status === 'approved' && (
               <button 
                 onClick={() => onComplete(booking.id)}
-                className="bg-emerald-600 text-white rounded-[1.5rem] h-14 px-12 flex items-center justify-center font-bold text-sm shadow-xl shadow-emerald-100 active:scale-95 transition-transform"
+                className="bg-emerald-600 text-white rounded-2xl h-14 px-12 flex items-center justify-center font-bold text-sm shadow-xl shadow-emerald-100 active:scale-95 transition-transform"
               >
                 Finish Session
               </button>
