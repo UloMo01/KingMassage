@@ -21,7 +21,9 @@ import {
   Target,
   Plus,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { ChatDialog } from '@/components/chat/chat-dialog'
 import { CancelDialog } from './cancel-dialog' 
@@ -57,6 +59,7 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
   const [isRatingModalOpen, setIsRatingModalOpen] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   
   const router = useRouter()
   const supabase = createClient()
@@ -116,6 +119,8 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
               <BookingCard 
                 key={booking.id} 
                 booking={booking} 
+                isExpanded={expandedId === booking.id}
+                onToggleExpand={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
                 onChatOpen={() => { setSelectedBooking(booking); setChatOpen(true); }} 
                 onCancel={() => { setSelectedBooking(booking); setIsCancelModalOpen(true); }}
               />
@@ -138,6 +143,8 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
               <BookingCard 
                 key={booking.id} 
                 booking={booking} 
+                isExpanded={expandedId === booking.id}
+                onToggleExpand={() => setExpandedId(expandedId === booking.id ? null : booking.id)}
                 onChatOpen={() => { setSelectedBooking(booking); setChatOpen(true); }} 
                 onRate={() => { setSelectedBooking(booking); setIsRatingModalOpen(true); }}
                 isPast 
@@ -149,16 +156,21 @@ export function BookingsList({ bookings, userId }: BookingsListProps) {
 
       <ChatDialog open={chatOpen} onOpenChange={setChatOpen} userId={userId} bookingId={selectedBooking?.id || null} serviceName={selectedBooking?.service || "Support"} />
       <CancelDialog isOpen={isCancelModalOpen} onClose={() => setIsCancelModalOpen(false)} onConfirm={handleConfirmCancel} isLoading={isSubmitting} />
-      {selectedBooking && <RatingDialog isOpen={isRatingModalOpen} onClose={() => { setIsRatingModalOpen(false); router.refresh(); }} bookingId={selectedBooking.id} serviceName={selectedBooking.service} currentRating={selectedBooking.rating} currentComment={selectedBooking.review_comment} />}
+      {selectedBooking && <RatingDialog isOpen={isRatingModalOpen} onClose={() => { setIsRatingModalOpen(false); router.refresh(); }} bookingId={selectedBooking.id} serviceName={selectedBooking.service} />}
     </div>
   )
 }
 
-function BookingCard({ booking, onChatOpen, onCancel, onRate, isPast = false }: any) {
+function BookingCard({ booking, isExpanded, onToggleExpand, onChatOpen, onCancel, onRate, isPast = false }: any) {
   const canCancel = !isPast && (booking.status === 'pending' || booking.status === 'approved')
   const canRate = booking.status === 'completed' && !booking.rating
   const isCompleted = booking.status === 'completed'
   const isRated = booking.rating !== null && booking.rating !== undefined
+
+  // ✅ FIX: Calculate total duration including admin-added extra_minutes
+  const totalDuration = (booking.duration || 60) + (booking.extra_minutes || 0)
+  const hasAdminAddedTime = (booking.extra_minutes || 0) > 0
+  const hasAddOns = booking.add_ons && booking.add_ons.length > 0
 
   return (
     <Card className={cn(
@@ -168,154 +180,179 @@ function BookingCard({ booking, onChatOpen, onCancel, onRate, isPast = false }: 
       {/* Status Bar */}
       {!isPast && <div className={cn("h-1.5 w-full", isCompleted ? "bg-blue-500" : "bg-emerald-500")} />}
       
-      <CardContent className="p-6">
-        <div className="flex flex-col gap-5">
-          {/* Header Section */}
-          <div className="flex justify-between items-start gap-4">
-            <div className="flex items-start gap-3 flex-1 min-w-0">
-              <div className={cn("p-3 rounded-2xl shrink-0", isPast ? "bg-slate-100" : isCompleted ? "bg-blue-50" : "bg-emerald-50")}>
-                {isCompleted ? (
-                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
-                ) : (
-                  <Sparkles className={cn("w-5 h-5", isPast ? "text-slate-400" : "text-emerald-600")} />
-                )}
-              </div>
-              <div className="min-w-0 flex-1">
-                <h3 className="font-bold text-lg text-slate-900 leading-tight">{booking.service}</h3>
-                <div className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-500 font-medium">
-                  <MapPin className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">{booking.location}</span>
-                </div>
+      <CardContent className="p-0">
+        {/* Collapsible Header */}
+        <div
+          className="p-6 cursor-pointer hover:bg-slate-50/50 transition-colors flex items-center justify-between"
+          onClick={onToggleExpand}
+        >
+          <div className="flex items-start gap-3 flex-1 min-w-0">
+            <div className={cn("p-3 rounded-2xl shrink-0", isPast ? "bg-slate-100" : isCompleted ? "bg-blue-50" : "bg-emerald-50")}>
+              {isCompleted ? (
+                <CheckCircle2 className="w-5 h-5 text-blue-600" />
+              ) : (
+                <Sparkles className={cn("w-5 h-5", isPast ? "text-slate-400" : "text-emerald-600")} />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="font-bold text-lg text-slate-900 leading-tight">{booking.service}</h3>
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-slate-500 font-medium">
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{booking.location}</span>
               </div>
             </div>
+          </div>
+          
+          <div className="flex items-center gap-3 shrink-0">
             <Badge className={cn(
               STATUS_STYLES[booking.status as keyof typeof STATUS_STYLES],
-              "border-none px-3 py-1.5 rounded-full text-[9px] uppercase tracking-wider font-bold shrink-0"
+              "border-none px-3 py-1.5 rounded-full text-[9px] uppercase tracking-wider font-bold"
             )}>
               {STATUS_LABELS[booking.status as keyof typeof STATUS_LABELS]}
             </Badge>
-          </div>
-
-          {/* Divider */}
-          <div className="h-px bg-slate-100" />
-
-          {/* Session Details Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center gap-2.5">
-              <Activity className="w-4 h-4 text-slate-400 shrink-0" />
-              <div>
-                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Pressure</p>
-                <p className="text-sm font-bold text-slate-700 capitalize mt-0.5">{booking.pressure_preference || 'Medium'}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <Target className="w-4 h-4 text-slate-400 shrink-0" />
-              <div>
-                <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Focus</p>
-                <p className="text-sm font-bold text-slate-700 capitalize mt-0.5">{booking.focus_area?.replace('-', ' ') || 'Full Body'}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Add-ons */}
-          {booking.add_ons && booking.add_ons.length > 0 && (
-            <div className="flex items-start gap-2.5 p-3 bg-emerald-50/50 rounded-2xl">
-              <Plus className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-[9px] text-emerald-600 uppercase font-bold tracking-wider mb-2">Add-ons</p>
-                <div className="flex flex-wrap gap-2">
-                  {Array.isArray(booking.add_ons) ? booking.add_ons.map((addon: any, idx: number) => (
-                    <Badge key={idx} variant="secondary" className="bg-white text-emerald-700 hover:bg-white border-none font-bold text-[11px]">
-                      {addon.name} (+₱{addon.price})
-                    </Badge>
-                  )) : null}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Date & Time */}
-          <div className={cn("grid grid-cols-3 gap-3 p-4 rounded-2xl", isPast ? "bg-slate-100/50" : "bg-slate-50")}>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400" />
-              <div>
-                <p className="text-[9px] text-slate-400 uppercase font-bold">Date</p>
-                <p className="text-sm font-bold text-slate-700">{format(parseISO(booking.date.includes('T') ? booking.date : `${booking.date}T00:00:00`), 'MMM d')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-slate-400" />
-              <div>
-                <p className="text-[9px] text-slate-400 uppercase font-bold">Time</p>
-                <p className="text-sm font-bold text-slate-700">{booking.time}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Clock3 className="w-4 h-4 text-slate-400" />
-              <div>
-                <p className="text-[9px] text-slate-400 uppercase font-bold">Duration</p>
-                <p className="text-sm font-bold text-slate-700">{booking.duration + (booking.extra_minutes || 0)}m</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Rating Display (if completed and rated) */}
-          {isCompleted && isRated && (
-            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
-              <div className="flex items-start gap-3">
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star 
-                      key={star}
-                      className={cn(
-                        "w-4 h-4",
-                        star <= (booking.rating || 0) 
-                          ? "fill-amber-400 text-amber-400" 
-                          : "text-amber-200"
-                      )}
-                    />
-                  ))}
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-bold text-amber-900">Your Review</p>
-                  {booking.review_comment && (
-                    <p className="text-xs text-amber-800 mt-1">{booking.review_comment}</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex gap-3 flex-wrap">
-            <Button 
-              variant="secondary" 
-              className="flex-1 min-w-[120px] rounded-2xl font-bold bg-slate-100 hover:bg-slate-200 h-11 text-slate-700" 
-              onClick={onChatOpen}
-            >
-              <MessageCircle className="w-4 h-4 mr-2" /> Chat
-            </Button>
-
-            {canRate && (
-              <Button 
-                className="flex-1 min-w-[120px] rounded-2xl font-bold bg-amber-400 hover:bg-amber-500 text-amber-950 h-11" 
-                onClick={onRate}
-              >
-                <Star className="w-4 h-4 mr-2" /> Rate
-              </Button>
-            )}
-
-            {canCancel && (
-              <Button 
-                variant="ghost" 
-                className="flex-1 min-w-[120px] text-red-500 hover:text-red-600 hover:bg-red-50 rounded-2xl font-bold h-11" 
-                onClick={onCancel}
-              >
-                <XCircle className="w-4 h-4 mr-2" /> Cancel
-              </Button>
+            {isExpanded ? (
+              <ChevronUp className="w-5 h-5 text-slate-400" />
+            ) : (
+              <ChevronDown className="w-5 h-5 text-slate-400" />
             )}
           </div>
         </div>
+
+        {/* Expanded Content */}
+        {isExpanded && (
+          <div className="px-6 pb-6 space-y-5 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
+            
+            {/* Session Details Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2.5">
+                <Activity className="w-4 h-4 text-slate-400 shrink-0" />
+                <div>
+                  <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Pressure</p>
+                  <p className="text-sm font-bold text-slate-700 capitalize mt-0.5">{booking.pressure_preference || 'Medium'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Target className="w-4 h-4 text-slate-400 shrink-0" />
+                <div>
+                  <p className="text-[9px] text-slate-400 uppercase font-bold tracking-wider">Focus</p>
+                  <p className="text-sm font-bold text-slate-700 capitalize mt-0.5">{booking.focus_area?.replace('-', ' ') || 'Full Body'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Add-ons - ✅ FIX: Now displays properly */}
+            {hasAddOns && (
+              <div className="flex items-start gap-2.5 p-3 bg-emerald-50/50 rounded-2xl">
+                <Plus className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[9px] text-emerald-600 uppercase font-bold tracking-wider mb-2">Add-ons</p>
+                  <div className="flex flex-wrap gap-2">
+                    {Array.isArray(booking.add_ons) ? booking.add_ons.map((addon: any, idx: number) => (
+                      <Badge key={idx} variant="secondary" className="bg-white text-emerald-700 hover:bg-white border-none font-bold text-[11px]">
+                        {addon.name} (+₱{addon.price})
+                      </Badge>
+                    )) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Date & Time - ✅ FIX: Duration now shows admin-added time */}
+            <div className={cn("grid grid-cols-3 gap-3 p-4 rounded-2xl", isPast ? "bg-slate-100/50" : "bg-slate-50")}>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-slate-400" />
+                <div>
+                  <p className="text-[9px] text-slate-400 uppercase font-bold">Date</p>
+                  <p className="text-sm font-bold text-slate-700">{format(parseISO(booking.date.includes('T') ? booking.date : `${booking.date}T00:00:00`), 'MMM d')}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-slate-400" />
+                <div>
+                  <p className="text-[9px] text-slate-400 uppercase font-bold">Time</p>
+                  <p className="text-sm font-bold text-slate-700">{booking.time}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock3 className="w-4 h-4 text-slate-400" />
+                <div>
+                  <p className="text-[9px] text-slate-400 uppercase font-bold">Duration</p>
+                  <div>
+                    <p className="text-sm font-bold text-slate-700">{totalDuration}m</p>
+                    {hasAdminAddedTime && (
+                      <p className="text-[10px] text-emerald-600 font-semibold">+{booking.extra_minutes}m added</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Price Display - ✅ NEW: Show total price if available */}
+            {booking.total_price && (
+              <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
+                <p className="text-[9px] text-emerald-600 uppercase font-bold tracking-wider mb-1">Total Price</p>
+                <p className="text-2xl font-bold text-emerald-700">₱{booking.total_price}</p>
+              </div>
+            )}
+
+            {/* Rating Display (if completed and rated) - ✅ FIX: Moved inside expanded section */}
+            {isCompleted && isRated && (
+              <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100">
+                <div className="flex items-start gap-3">
+                  <div className="flex gap-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <Star 
+                        key={star}
+                        className={cn(
+                          "w-4 h-4",
+                          star <= (booking.rating || 0) 
+                            ? "fill-amber-400 text-amber-400" 
+                            : "text-amber-200"
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-amber-900">Your Review</p>
+                    {booking.review_comment && (
+                      <p className="text-xs text-amber-800 mt-1">{booking.review_comment}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex gap-3 flex-wrap pt-4 border-t border-slate-100">
+              <Button 
+                variant="secondary" 
+                className="flex-1 min-w-[120px] rounded-2xl font-bold bg-slate-100 hover:bg-slate-200 h-11 text-slate-700" 
+                onClick={onChatOpen}
+              >
+                <MessageCircle className="w-4 h-4 mr-2" /> Chat
+              </Button>
+
+              {canRate && (
+                <Button 
+                  className="flex-1 min-w-[120px] rounded-2xl font-bold bg-amber-400 hover:bg-amber-500 text-amber-950 h-11" 
+                  onClick={onRate}
+                >
+                  <Star className="w-4 h-4 mr-2" /> Rate
+                </Button>
+              )}
+
+              {canCancel && (
+                <Button 
+                  variant="ghost" 
+                  className="flex-1 min-w-[120px] text-red-500 hover:text-red-600 hover:bg-red-50 rounded-2xl font-bold h-11" 
+                  onClick={onCancel}
+                >
+                  <XCircle className="w-4 h-4 mr-2" /> Cancel
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   )
