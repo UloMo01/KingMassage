@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react' // ✅ Added React import
+import React, { useState } from 'react' 
 import type { Booking } from '@/lib/types'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -17,8 +17,9 @@ import {
   Clock3, 
   XCircle, 
   Star,
-  Activity, // New: for Pressure
-  Target    // New: for Focus Area
+  Activity, 
+  Target,
+  Plus // New icon for Add-ons
 } from 'lucide-react'
 import { ChatDialog } from '@/components/chat/chat-dialog'
 import { CancelDialog } from './cancel-dialog' 
@@ -34,7 +35,7 @@ interface BookingsListProps {
 
 const STATUS_STYLES = {
   pending: 'bg-amber-100 text-amber-800',
-  approved: 'bg-emerald-100 text-emerald-800', // Synced with King's Massage branding
+  approved: 'bg-emerald-100 text-emerald-800', 
   rejected: 'bg-red-100 text-red-800',
   completed: 'bg-blue-100 text-blue-800',
   cancelled: 'bg-slate-100 text-slate-800',
@@ -154,7 +155,7 @@ function BookingCard({ booking, onChatOpen, onCancel, onRate, isPast = false }: 
       {!isPast && <div className="h-1.5 bg-emerald-500 w-full" />}
       <CardContent className="p-6">
         <div className="flex flex-col gap-5">
-          {/* Service Header */}
+          {/* Header */}
           <div className="flex justify-between items-start">
             <div className="flex items-center gap-3">
               <div className={cn("p-2.5 rounded-2xl", isPast ? "bg-slate-100" : "bg-emerald-50")}>
@@ -176,25 +177,40 @@ function BookingCard({ booking, onChatOpen, onCancel, onRate, isPast = false }: 
             </Badge>
           </div>
           
-          {/* ✅ New: Session Preferences (Pressure & Focus) */}
-          <div className="grid grid-cols-2 gap-4 border-y border-slate-50 py-4">
-            <div className="flex items-center gap-2.5">
-              <Activity className="w-4 h-4 text-emerald-500" />
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Pressure</p>
-                <p className="text-xs font-bold text-slate-700 capitalize">{booking.pressure_preference || 'No Preference'}</p>
+          {/* Session Preferences & Add-ons */}
+          <div className="grid grid-cols-1 gap-4 border-y border-slate-50 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="flex items-center gap-2.5">
+                <Activity className="w-4 h-4 text-emerald-500" />
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Pressure</p>
+                  <p className="text-xs font-bold text-slate-700 capitalize">{booking.pressure_preference || 'No Preference'}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <Target className="w-4 h-4 text-emerald-500" />
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Focus</p>
+                  <p className="text-xs font-bold text-slate-700 capitalize">{booking.focus_area?.replace('-', ' ') || 'Full Body'}</p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2.5">
-              <Target className="w-4 h-4 text-emerald-500" />
-              <div>
-                <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Focus</p>
-                <p className="text-xs font-bold text-slate-700 capitalize">{booking.focus_area?.replace('-', ' ') || 'Full Body'}</p>
+
+            {/* ✅ Restored: Add-on Display */}
+            {booking.add_on_service && booking.add_on_service !== 'None' && (
+              <div className="flex items-center gap-2.5 pt-2 border-t border-slate-50/50">
+                <Plus className="w-4 h-4 text-emerald-500" />
+                <div>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Add-on Service</p>
+                  <Badge variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-50 border-none font-bold text-[11px] mt-0.5">
+                    {booking.add_on_service} (+₱{booking.add_on_price})
+                  </Badge>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Date & Time Slot */}
+          {/* DateTime */}
           <div className={cn("grid grid-cols-2 gap-3 p-3 rounded-2xl", isPast ? "bg-slate-200/20" : "bg-slate-50")}>
             <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
               <Calendar className="w-4 h-4 text-slate-400" />
@@ -206,7 +222,7 @@ function BookingCard({ booking, onChatOpen, onCancel, onRate, isPast = false }: 
             </div>
           </div>
 
-          {/* Action Buttons */}
+          {/* Actions */}
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1 rounded-2xl font-bold bg-slate-100 hover:bg-slate-200 h-11 text-slate-700" onClick={onChatOpen}>
               <MessageCircle className="w-4 h-4 mr-2" /> Chat
