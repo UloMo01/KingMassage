@@ -1,3 +1,4 @@
+// app/(admin)/page.tsx
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { AdminDashboard } from '@/components/admin/admin-dashboard'
@@ -10,27 +11,43 @@ export const metadata = {
 
 export default async function AdminPage() {
   const supabase = await createClient()
-  
-  // 1. Verify Authentication
-  const { data: { user } } = await supabase.auth.getUser()
+
+  // 1. Verify authentication
+  const {
+    data: userGetData,
+    error: userGetError,
+  } = await supabase.auth.getUser()
+
+  const user = userGetData?.user ?? null
+
+  if (userGetError) {
+    console.error('Supabase auth.getUser error:', userGetError.message)
+  }
+
   if (!user) {
+    // Not authenticated — redirect to login with return path
     redirect('/auth/login?redirect=/admin')
   }
 
-  // 2. FIXED: Changed 'profiles' to 'users'
+  // 2. Get role from users table (defensive)
   const { data: userData, error: roleError } = await supabase
-    .from('users') 
+    .from('users')
     .select('role')
     .eq('id', user.id)
     .single()
 
-  // If there is an error or the user isn't an admin, we redirect
-  if (roleError || userData?.role !== 'admin') {
-    console.error('Admin check failed:', roleError?.message)
+  if (roleError) {
+    console.error('Error fetching user role:', roleError.message)
+    // If we can't verify role, be conservative and redirect
     redirect('/')
   }
 
-  // 3. Fetch Bookings
+  if (userData?.role !== 'admin') {
+    console.warn('Unauthorized access attempt by user:', user.id)
+    redirect('/')
+  }
+
+  // 3. Fetch bookings (defensive)
   const { data: bookings, error: bookingError } = await supabase
     .from('bookings')
     .select(`
@@ -58,23 +75,28 @@ export default async function AdminPage() {
     .order('created_at', { ascending: false })
 
   if (bookingError) {
-    console.error('❌ Database Fetch Error:', bookingError.message)
+    console.error('Database fetch error (bookings):', bookingError.message)
   }
 
-  // 4. FIXED: Changed 'profiles' to 'users'
-  const { data: users } = await supabase
+  // 4. Fetch client users
+  const { data: users, error: usersError } = await supabase
     .from('users')
     .select('*')
     .eq('role', 'client')
     .order('created_at', { ascending: false })
 
+  if (usersError) {
+    console.error('Database fetch error (users):', usersError.message)
+  }
+
+  // Provide safe defaults to the dashboard
+  const safeBookings = bookings ?? []
+  const safeUsers = users ?? []
+
   return (
     <main className="min-h-screen bg-slate-50/50">
       <Suspense fallback={<AdminLoading />}>
-        <AdminDashboard 
-          initialBookings={bookings || []} 
-          initialUsers={users || []} 
-        />
+        <AdminDashboard initialBookings={safeBookings} initialUsers={safeUsers} />
       </Suspense>
     </main>
   )
