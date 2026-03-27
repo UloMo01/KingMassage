@@ -69,7 +69,21 @@ export function BookingsTable({
           added_ons: []
         }
         
-        const allAddOns = [...(booking.add_ons || []), ...(modifications.added_ons || [])]
+        // ✅ FIX: Only show unique add-ons (no duplicates)
+        const allAddOns = useMemo(() => {
+          const existing = booking.add_ons || []
+          const newly = modifications.added_ons || []
+          
+          // Filter out duplicates
+          const uniqueAdded = newly.filter(newItem => 
+            !existing.some(existingItem => 
+              existingItem.name === newItem.name && existingItem.price === newItem.price
+            )
+          )
+          
+          return [...existing, ...uniqueAdded]
+        }, [booking.add_ons, modifications.added_ons])
+        
         const displayDuration = booking.duration + (modifications.extra_minutes || 0)
         
         const calculatedTotal = useMemo(() => {
@@ -188,7 +202,7 @@ export function BookingsTable({
                   </div>
                 </div>
 
-                {/* ✅ NEW: Client Rating Section */}
+                {/* ✅ Client Rating Section - FIXED */}
                 {booking.status === 'completed' && booking.rating && (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5 px-1">
@@ -202,7 +216,7 @@ export function BookingsTable({
                             key={star}
                             className={cn(
                               "w-4 h-4",
-                              star <= booking.rating 
+                              star <= (booking.rating || 0)
                                 ? "fill-amber-400 text-amber-400" 
                                 : "text-amber-200"
                             )}
@@ -324,8 +338,11 @@ export function BookingsTable({
                         className="bg-emerald-600 text-white rounded-xl h-11 px-8 font-bold text-xs shadow-md active:scale-95 transition-transform"
                         onClick={(e) => {
                           e.stopPropagation()
+                          // ✅ FIX: Only add newly added services (no duplicates)
+                          const finalAddOns = (booking.add_ons || []).concat(modifications.added_ons || [])
+                          
                           onComplete(booking.id, calculatedTotal, {
-                            add_ons: allAddOns,
+                            add_ons: finalAddOns,
                             extra_minutes: modifications.extra_minutes || 0,
                             total_price: calculatedTotal
                           })
