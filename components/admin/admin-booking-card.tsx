@@ -19,7 +19,6 @@ interface AdminDashboardProps {
   users: User[]
 }
 
-// Format Philippine Pesos currency
 const formatPHP = (amount: number) => {
   return new Intl.NumberFormat('en-PH', {
     style: 'currency',
@@ -28,7 +27,6 @@ const formatPHP = (amount: number) => {
   }).format(amount)
 }
 
-// Get current month for earnings calculation
 const getCurrentMonthRange = () => {
   const now = new Date()
   const start = new Date(now.getFullYear(), now.getMonth(), 1)
@@ -50,7 +48,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
   const router = useRouter()
   const supabase = createClient()
 
-  // 🔑 Optimistic Handlers
   async function handleApprove(id: string) {
     setLocalBookings(prev =>
       prev.map(b => b.id === id ? { ...b, status: 'approved' } : b)
@@ -75,7 +72,7 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
     router.refresh()
   }
 
-  // ✅ FIXED: Save to extra_minutes field instead of duration
+  // ✅ CRITICAL FIX: Ensure all data is saved properly
   async function handleComplete(id: string, earnings: number, bookingData?: any) {
     const bookingToUpdate = localBookings.find(b => b.id === id)
     
@@ -91,14 +88,26 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
     )
     
     try {
-      // ✅ Key fix: Save to extra_minutes, NOT duration
-      await supabase.from('bookings').update({ 
+      // ✅ CRITICAL FIX: Save ALL fields to Supabase
+      const updatePayload = {
         status: 'completed', 
         earnings,
         add_ons: bookingData?.add_ons || bookingToUpdate?.add_ons || [],
-        extra_minutes: bookingData?.extra_minutes || 0, // ✅ Save to extra_minutes
+        extra_minutes: bookingData?.extra_minutes || 0,
         total_price: bookingData?.total_price || bookingToUpdate?.total_price
-      }).eq('id', id)
+      }
+      
+      console.log('Saving booking with payload:', updatePayload) // Debug log
+      
+      const { error } = await supabase
+        .from('bookings')
+        .update(updatePayload)
+        .eq('id', id)
+      
+      if (error) {
+        console.error('Complete failed:', error)
+        return
+      }
       
       router.refresh()
     } catch (err) {
@@ -106,7 +115,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
     }
   }
 
-  // Stats
   const pendingCount = localBookings.filter((b) => b.status === 'pending').length
   const approvedCount = localBookings.filter((b) => b.status === 'approved').length
   const completedCount = localBookings.filter((b) => b.status === 'completed').length
@@ -117,7 +125,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
     .filter(b => b.status === 'completed' && new Date(b.created_at) >= monthStart && new Date(b.created_at) <= monthEnd)
     .reduce((sum, b) => sum + (b.earnings || 0), 0)
 
-  // Filters
   const filteredBookings = localBookings.filter(booking => {
     const searchLower = searchQuery.toLowerCase().trim()
     return searchLower === '' || 
@@ -143,9 +150,7 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
       
       <main className="flex-1 py-8 px-4">
         <div className="container mx-auto max-w-6xl">
-          {/* Dashboard Stats Header - ✅ FIXED: Changed from md:grid-cols-4 to md:grid-cols-2 for 2x2 layout */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-            {/* Pending Bookings */}
             <Card className="bg-white shadow-sm ring-1 ring-slate-100 rounded-2xl">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
@@ -160,7 +165,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
               </CardContent>
             </Card>
 
-            {/* Approved Bookings */}
             <Card className="bg-white shadow-sm ring-1 ring-slate-100 rounded-2xl">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
@@ -175,7 +179,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
               </CardContent>
             </Card>
 
-            {/* Completed Sessions */}
             <Card className="bg-white shadow-sm ring-1 ring-slate-100 rounded-2xl">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
@@ -190,7 +193,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
               </CardContent>
             </Card>
 
-            {/* Monthly Earnings */}
             <Card className="bg-white shadow-sm ring-1 ring-slate-100 rounded-2xl">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
@@ -206,7 +208,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
             </Card>
           </div>
 
-          {/* Main Content Tabs */}
           <Tabs defaultValue="bookings" value={activeTab} onValueChange={setActiveTab} className="mb-8">
             <TabsList className="grid w-full md:w-auto grid-cols-2 mb-6">
               <TabsTrigger value="bookings" className="flex items-center gap-2">
@@ -227,7 +228,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
               </TabsTrigger>
             </TabsList>
 
-            {/* Bookings Tab Content */}
             <TabsContent value="bookings" className="space-y-4">
               <div className="flex flex-col md:flex-row justify-between gap-4 mb-4">
                 <h3 className="text-lg font-semibold">Bookings {bookingFilter !== 'all' ? `(${bookingFilter})` : ''}</h3>
@@ -246,7 +246,6 @@ export function AdminDashboard({ bookings, users }: AdminDashboardProps) {
               />
             </TabsContent>
 
-            {/* Clients Tab Content */}
             <TabsContent value="clients">
               <h3 className="text-lg font-semibold mb-4">Registered Clients ({totalClients})</h3>
               <ClientsList users={filteredUsers} bookings={localBookings} />
