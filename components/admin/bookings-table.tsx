@@ -3,9 +3,8 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
 import { 
-  User, ChevronDown, ChevronUp, Info, Clock as TimerIcon, Star, MessageSquare
+  User, ChevronDown, ChevronUp, Info, Star, MessageSquare
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { calculateTotalPrice } from '@/lib/pricing'
@@ -22,17 +21,13 @@ interface BookingsTableProps {
   onApprove: (id: string) => void
   onReject: (id: string) => void
   onComplete: (id: string, finalEarnings: number, bookingData?: any) => void
-  onExtendTime?: (id: string, minutes: number) => void
-  onAddService?: (id: string, service: string) => void
 }
 
 export function BookingsTable({
   bookings,
   onApprove,
   onReject,
-  onComplete,
-  onExtendTime,
-  onAddService
+  onComplete
 }: BookingsTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [selectedExtend, setSelectedExtend] = useState<Record<string, string>>({})
@@ -69,34 +64,36 @@ export function BookingsTable({
           added_ons: []
         }
         
-        // ✅ FIX: Only show unique add-ons (no duplicates)
         const allAddOns = useMemo(() => {
           const existing = booking.add_ons || []
           const newly = modifications.added_ons || []
-          
-          // Filter out duplicates
           const uniqueAdded = newly.filter(newItem => 
             !existing.some(existingItem => 
               existingItem.name === newItem.name && existingItem.price === newItem.price
             )
           )
-          
           return [...existing, ...uniqueAdded]
         }, [booking.add_ons, modifications.added_ons])
         
-        const displayDuration = booking.duration + (modifications.extra_minutes || 0)
+        // ✅ FIX: Calculate display duration correctly
+        // booking.extra_minutes = client added before booking + admin added during approval
+        // session_extra_minutes = client added during session (if any)
+        const baseMinutes = booking.duration || 60
+        const priorExtraMinutes = booking.extra_minutes || 0
+        const sessionExtraMinutes = booking.session_extra_minutes || 0
+        const adminAddedMinutes = modifications.extra_minutes || 0
+        
+        const displayDuration = baseMinutes + priorExtraMinutes + sessionExtraMinutes + adminAddedMinutes
         
         const calculatedTotal = useMemo(() => {
           const basePrice = booking.total_price || 600
-          const extraTime = modifications.extra_minutes || 0
+          const totalExtraMinutes = priorExtraMinutes + sessionExtraMinutes + (modifications.extra_minutes || 0)
           const addOnsCount = (modifications.added_ons || []).length
-          
-          return calculateTotalPrice(basePrice, extraTime, addOnsCount)
-        }, [modifications.extra_minutes, modifications.added_ons, booking.total_price])
+          return calculateTotalPrice(basePrice, totalExtraMinutes, addOnsCount)
+        }, [modifications.extra_minutes, modifications.added_ons, booking.total_price, priorExtraMinutes, sessionExtraMinutes])
 
         const handleExtendTime = (minutes: number) => {
           const validMinutes = parseInt(String(minutes), 10) || 0
-          
           setBookingModifications(prev => {
             const current = prev[booking.id] || { extra_minutes: 0, added_ons: [] }
             return {
@@ -125,6 +122,7 @@ export function BookingsTable({
         }
 
         const basePrice = booking.total_price || 600
+        const totalExtraMinutes = priorExtraMinutes + sessionExtraMinutes + adminAddedMinutes
         const extraTimePrice = calculatedTotal - basePrice - ((modifications.added_ons?.length || 0) * 150)
         const addOnsPrice = (modifications.added_ons?.length || 0) * 150
 
@@ -133,7 +131,7 @@ export function BookingsTable({
             key={booking.id}
             className="bg-white rounded-[2rem] shadow-sm ring-1 ring-slate-100 overflow-hidden w-full transition-all"
           >
-            {/* 1. Header Row */}
+            {/* Header Row */}
             <div
               className="p-5 flex items-center justify-between cursor-pointer active:bg-slate-50"
               onClick={() => setExpandedId(isExpanded ? null : booking.id)}
@@ -168,7 +166,7 @@ export function BookingsTable({
               </div>
             </div>
 
-            {/* 2. Expanded Content */}
+            {/* Expanded Content */}
             {isExpanded && (
               <div className="px-5 pb-5 space-y-5 bg-white animate-in fade-in slide-in-from-top-1">
                 
@@ -183,6 +181,35 @@ export function BookingsTable({
                     <p className="text-xs font-bold text-slate-700 capitalize">{booking.focus_area?.replace('-', ' ') || 'Full Body'}</p>
                   </div>
                 </div>
+
+                {/* ✅ Duration Breakdown - Shows all sources of extra time */}
+                {(priorExtraMinutes || sessionExtraMinutes || adminAddedMinutes) > 0 && (
+                  <div className="p-3 bg-blue-50 rounded-xl border border-blue-100 text-xs space-y-1">
+                    <p className="font-bold text-blue-900 mb-2">Duration Breakdown</p>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Base:</span>
+                      <span className="font-bold">{baseMinutes}m</span>
+                    </div>
+                    {priorExtraMinutes > 0 && (
+                      <div className="flex justify-between text-amber-700">
+                        <span>Client added before:</span>
+                        <span className="font-bold">+{priorExtraMinutes}m</span>
+                      </div>
+                    )}
+                    {sessionExtraMinutes > 0 && (
+                      <div className="flex justify-between text-emerald-700">
+                        <span>Client added during session:</span>
+                        <span className="font-bold">+{sessionExtraMinutes}m</span>
+                      </div>
+                    )}
+                    {adminAddedMinutes > 0 && (
+                      <div className="flex justify-between text-indigo-700">
+                        <span>You added:</span>
+                        <span className="font-bold">+{adminAddedMinutes}m</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Active Services */}
                 <div className="space-y-2">
@@ -202,7 +229,7 @@ export function BookingsTable({
                   </div>
                 </div>
 
-                {/* ✅ Client Rating Section - SHOWS WHEN: booking.status === 'completed' AND booking.rating exists */}
+                {/* Client Rating */}
                 {booking.status === 'completed' && booking.rating ? (
                   <div className="space-y-2">
                     <div className="flex items-center gap-1.5 px-1">
@@ -234,7 +261,7 @@ export function BookingsTable({
                   </div>
                 ) : null}
 
-                {/* Manage Session Dropdowns */}
+                {/* Manage Session - Only for Approved */}
                 {status === 'approved' && (
                   <div className="grid grid-cols-2 gap-2">
                     <select
@@ -243,8 +270,7 @@ export function BookingsTable({
                       onChange={(e) => {
                         const val = e.target.value
                         if (val) {
-                          const minutes = parseInt(val, 10)
-                          handleExtendTime(minutes)
+                          handleExtendTime(parseInt(val, 10))
                         }
                       }}
                     >
@@ -260,9 +286,7 @@ export function BookingsTable({
                         const val = e.target.value
                         if (val) {
                           const service = ADD_ON_OPTIONS.find(s => s.name === val)
-                          if (service) {
-                            handleAddService(service)
-                          }
+                          if (service) handleAddService(service)
                         }
                       }}
                     >
@@ -279,12 +303,12 @@ export function BookingsTable({
                   <div className="bg-emerald-50 rounded-xl p-3 text-xs space-y-1.5 border border-emerald-100">
                     <p className="font-bold text-emerald-900">Price Breakdown</p>
                     <div className="flex justify-between text-slate-600">
-                      <span>Base ({booking.duration}m):</span>
+                      <span>Base:</span>
                       <span className="font-bold">₱{basePrice}</span>
                     </div>
-                    {modifications.extra_minutes > 0 && (
+                    {totalExtraMinutes > 0 && (
                       <div className="flex justify-between text-emerald-700">
-                        <span>Extra Time (+{modifications.extra_minutes}m):</span>
+                        <span>Extra Time (+{totalExtraMinutes}m):</span>
                         <span className="font-bold">₱{extraTimePrice}</span>
                       </div>
                     )}
@@ -338,12 +362,13 @@ export function BookingsTable({
                         className="bg-emerald-600 text-white rounded-xl h-11 px-8 font-bold text-xs shadow-md active:scale-95 transition-transform"
                         onClick={(e) => {
                           e.stopPropagation()
-                          // ✅ FIX: Only add newly added services (no duplicates)
-                          const finalAddOns = (booking.add_ons || []).concat(modifications.added_ons || [])
+                          const existingAddOns = booking.add_ons || []
+                          const newAddOns = modifications.added_ons || []
+                          const finalAddOns = [...existingAddOns, ...newAddOns]
                           
                           onComplete(booking.id, calculatedTotal, {
                             add_ons: finalAddOns,
-                            extra_minutes: modifications.extra_minutes || 0,
+                            extra_minutes: adminAddedMinutes || 0,
                             total_price: calculatedTotal
                           })
                         }}
