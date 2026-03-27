@@ -35,22 +35,29 @@ export function BookingsTable({
   onAddService
 }: BookingsTableProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [earningsInputs, setEarningsInputs] = useState<Record<string, number>>({})
   const [selectedExtend, setSelectedExtend] = useState<Record<string, string>>({})
   const [selectedAddOn, setSelectedAddOn] = useState<Record<string, string>>({})
   
-  // Track extra minutes and add-ons per booking
+  // Track extra minutes and add-ons per booking - IMPORTANT: Initialize properly
   const [bookingModifications, setBookingModifications] = useState<Record<string, {
     extra_minutes: number
     added_ons: any[]
   }>>({})
 
+  // Initialize modifications state when bookings change
   useEffect(() => {
-    const initialInputs: Record<string, number> = {}
+    const initialMods: Record<string, any> = {}
     bookings.forEach(b => {
-      initialInputs[b.id] = b.earnings ?? b.total_price ?? 0
+      if (!bookingModifications[b.id]) {
+        initialMods[b.id] = {
+          extra_minutes: 0,
+          added_ons: []
+        }
+      }
     })
-    setEarningsInputs(initialInputs)
+    if (Object.keys(initialMods).length > 0) {
+      setBookingModifications(prev => ({ ...prev, ...initialMods }))
+    }
   }, [bookings])
 
   return (
@@ -59,57 +66,71 @@ export function BookingsTable({
         const isExpanded = expandedId === booking.id
         const status = (booking.status || 'pending').toLowerCase()
         
-        // Get modifications for this booking
+        // ✅ FIX: Safely get modifications with default values
         const modifications = bookingModifications[booking.id] || {
           extra_minutes: 0,
           added_ons: []
         }
         
         // All add-ons (original + newly added)
-        const allAddOns = [...(booking.add_ons || []), ...modifications.added_ons]
+        const allAddOns = [...(booking.add_ons || []), ...(modifications.added_ons || [])]
         
-        // ✅ Auto-calculate total price
+        // Updated duration
+        const updatedDuration = booking.duration + (modifications.extra_minutes || 0)
+        
+        // ✅ FIX: Calculate total with proper defaults
         const calculatedTotal = useMemo(() => {
-          return calculateTotalPrice(
-            booking.total_price || 600,
-            modifications.extra_minutes,
-            modifications.added_ons.length
-          )
+          const basePrice = booking.total_price || 600
+          const extraTime = modifications.extra_minutes || 0
+          const addOnsCount = (modifications.added_ons || []).length
+          
+          return calculateTotalPrice(basePrice, extraTime, addOnsCount)
         }, [modifications.extra_minutes, modifications.added_ons, booking.total_price])
 
         const handleExtendTime = (minutes: number) => {
-          setBookingModifications(prev => ({
-            ...prev,
-            [booking.id]: {
-              ...prev[booking.id],
-              extra_minutes: (prev[booking.id]?.extra_minutes || 0) + minutes
+          // ✅ FIX: Ensure we're working with valid numbers
+          const validMinutes = parseInt(String(minutes), 10) || 0
+          
+          setBookingModifications(prev => {
+            const current = prev[booking.id] || { extra_minutes: 0, added_ons: [] }
+            return {
+              ...prev,
+              [booking.id]: {
+                ...current,
+                extra_minutes: (current.extra_minutes || 0) + validMinutes
+              }
             }
-          }))
+          })
+          // Reset dropdown
           setSelectedExtend(prev => ({ ...prev, [booking.id]: '' }))
         }
 
         const handleAddService = (service: { name: string, price: number }) => {
-          setBookingModifications(prev => ({
-            ...prev,
-            [booking.id]: {
-              ...prev[booking.id],
-              added_ons: [...(prev[booking.id]?.added_ons || []), service]
+          setBookingModifications(prev => {
+            const current = prev[booking.id] || { extra_minutes: 0, added_ons: [] }
+            return {
+              ...prev,
+              [booking.id]: {
+                ...current,
+                added_ons: [...(current.added_ons || []), service]
+              }
             }
-          }))
+          })
+          // Reset dropdown
           setSelectedAddOn(prev => ({ ...prev, [booking.id]: '' }))
         }
 
         // Calculate breakdown values
         const basePrice = booking.total_price || 600
-        const extraTimePrice = calculatedTotal - basePrice - (modifications.added_ons.length * 150)
-        const addOnsPrice = modifications.added_ons.length * 150
+        const extraTimePrice = calculatedTotal - basePrice - ((modifications.added_ons?.length || 0) * 150)
+        const addOnsPrice = (modifications.added_ons?.length || 0) * 150
 
         return (
           <div
             key={booking.id}
             className="bg-white rounded-[2rem] shadow-sm ring-1 ring-slate-100 overflow-hidden w-full transition-all"
           >
-            {/* 1. Header Row - Scaled down font sizes */}
+            {/* 1. Header Row */}
             <div
               className="p-5 flex items-center justify-between cursor-pointer active:bg-slate-50"
               onClick={() => setExpandedId(isExpanded ? null : booking.id)}
@@ -148,7 +169,7 @@ export function BookingsTable({
             {isExpanded && (
               <div className="px-5 pb-5 space-y-5 bg-white animate-in fade-in slide-in-from-top-1">
                 
-                {/* Stats Grid - Smaller text */}
+                {/* Stats Grid */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 bg-slate-50 rounded-2xl">
                     <span className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5 tracking-tight">Pressure</span>
@@ -168,7 +189,7 @@ export function BookingsTable({
                   </div>
                   <div className="flex flex-wrap gap-1.5 p-3 bg-slate-50/50 rounded-2xl">
                     <Badge className="bg-white text-slate-700 border-none font-bold text-[10px] px-3 py-1.5 rounded-xl shadow-sm">
-                      {booking.service} ({booking.duration + modifications.extra_minutes}m)
+                      {booking.service} ({updatedDuration}m)
                     </Badge>
                     {allAddOns?.map((ao: any, i: number) => (
                       <Badge key={i} className="bg-white text-emerald-600 border-none font-bold text-[10px] px-3 py-1.5 rounded-xl shadow-sm">
@@ -178,7 +199,7 @@ export function BookingsTable({
                   </div>
                 </div>
 
-                {/* 3. Manage Session Dropdowns - More compact */}
+                {/* Manage Session Dropdowns */}
                 {status === 'approved' && (
                   <div className="grid grid-cols-2 gap-2">
                     <select
@@ -186,8 +207,10 @@ export function BookingsTable({
                       value={selectedExtend[booking.id] ?? ''}
                       onChange={(e) => {
                         const val = e.target.value
-                        const minutes = val ? parseInt(val, 10) : 0
-                        if (minutes) handleExtendTime(minutes)
+                        if (val) {
+                          const minutes = parseInt(val, 10)
+                          handleExtendTime(minutes)
+                        }
                       }}
                     >
                       <option value="">Extend Time</option>
@@ -200,8 +223,12 @@ export function BookingsTable({
                       value={selectedAddOn[booking.id] ?? ''}
                       onChange={(e) => {
                         const val = e.target.value
-                        const service = ADD_ON_OPTIONS.find(s => s.name === val)
-                        if (service) handleAddService(service)
+                        if (val) {
+                          const service = ADD_ON_OPTIONS.find(s => s.name === val)
+                          if (service) {
+                            handleAddService(service)
+                          }
+                        }
                       }}
                     >
                       <option value="">Add Service</option>
@@ -212,8 +239,8 @@ export function BookingsTable({
                   </div>
                 )}
 
-                {/* Price Breakdown */}
-                {status === 'approved' && (modifications.extra_minutes > 0 || modifications.added_ons.length > 0) && (
+                {/* Price Breakdown - Only show if modifications exist */}
+                {status === 'approved' && (modifications.extra_minutes > 0 || (modifications.added_ons && modifications.added_ons.length > 0)) && (
                   <div className="bg-emerald-50 rounded-xl p-3 text-xs space-y-1.5 border border-emerald-100">
                     <p className="font-bold text-emerald-900">Price Breakdown</p>
                     <div className="flex justify-between text-slate-600">
@@ -226,7 +253,7 @@ export function BookingsTable({
                         <span className="font-bold">₱{extraTimePrice}</span>
                       </div>
                     )}
-                    {modifications.added_ons.length > 0 && (
+                    {modifications.added_ons && modifications.added_ons.length > 0 && (
                       <div className="flex justify-between text-emerald-700">
                         <span>Add-ons ({modifications.added_ons.length} × ₱150):</span>
                         <span className="font-bold">₱{addOnsPrice}</span>
@@ -239,7 +266,7 @@ export function BookingsTable({
                   </div>
                 )}
 
-                {/* 4. Footer - Refined earnings font */}
+                {/* Footer */}
                 <div className="flex items-center justify-between pt-4 border-t border-slate-50">
                   <div>
                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest block mb-0.5">Earnings</span>
@@ -276,11 +303,12 @@ export function BookingsTable({
                         className="bg-emerald-600 text-white rounded-xl h-11 px-8 font-bold text-xs shadow-md active:scale-95 transition-transform"
                         onClick={(e) => {
                           e.stopPropagation()
-                          // ✅ Pass booking data with all modifications
+                          // ✅ FIX: Ensure all data is properly passed
                           onComplete(booking.id, calculatedTotal, {
                             add_ons: allAddOns,
-                            duration: booking.duration + modifications.extra_minutes,
-                            total_price: calculatedTotal
+                            duration: updatedDuration,
+                            total_price: calculatedTotal,
+                            extra_minutes: modifications.extra_minutes || 0
                           })
                         }}
                       >
