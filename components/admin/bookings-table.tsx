@@ -86,12 +86,15 @@ export function BookingsTable({
         const displayDuration = baseMinutes + priorExtraMinutes + sessionExtraMinutes + adminAddedMinutes
         
         const calculatedTotal = useMemo(() => {
-          const basePrice = booking.total_price || 600
-          const totalExtraMinutes = priorExtraMinutes + sessionExtraMinutes + (modifications.extra_minutes || 0)
-          const addOnsCount = (modifications.added_ons || []).length
-          return calculateTotalPrice(basePrice, totalExtraMinutes, addOnsCount)
-        }, [modifications.extra_minutes, modifications.added_ons, booking.total_price, priorExtraMinutes, sessionExtraMinutes])
+  const baseTotal = booking.total_price || 600
 
+  const newExtraMinutes = modifications.extra_minutes || 0
+  const extraMinutesCost = (newExtraMinutes / 15) * 150
+
+  const addOnsCost = (modifications.added_ons?.length || 0) * 150
+
+  return baseTotal + extraMinutesCost + addOnsCost
+}, [booking.total_price, modifications.extra_minutes, modifications.added_ons])
         const handleExtendTime = (minutes: number) => {
           const validMinutes = parseInt(String(minutes), 10) || 0
           setBookingModifications(prev => {
