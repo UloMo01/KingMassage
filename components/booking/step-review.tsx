@@ -108,9 +108,11 @@ export function StepReview() {
   }
 
   const handleClose = () => {
-    setShowModal(false)
     if (isSuccess) {
+      setShowModal(false)
       router.push('/my-bookings')
+    } else {
+      setShowModal(false)
     }
   }
 
@@ -218,7 +220,7 @@ export function StepReview() {
         </Button>
       </div>
 
-      {/* ✅ ENHANCED: Dynamic Feedback Modal with Better UX */}
+      {/* ✅ ENHANCED: Dynamic Feedback Modal with Better UX & FIXED REDIRECT */}
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
