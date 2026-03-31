@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { FcGoogle } from 'react-icons/fc'
+import { SiTelegram } from 'react-icons/si'
 
 export default function Page() {
   const [email, setEmail] = useState('')
@@ -23,6 +24,7 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isTelegramLoading, setIsTelegramLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -31,7 +33,6 @@ export default function Page() {
     const lockMobileView = () => {
       document.documentElement.style.width = 'device-width'
       document.documentElement.style.overflowX = 'hidden'
-      // Override any desktop viewport overrides from OAuth redirects
       if (window.innerWidth > 768) {
         document.body.style.maxWidth = '375px'
         document.body.style.margin = '0 auto'
@@ -66,7 +67,7 @@ export default function Page() {
         options: {
           emailRedirectTo:
             process.env.NEXT_PUBLIC_SIGNUP_REDIRECT_URL ||
-            `${window.location.origin}/auth/sign-up-success?mobile=true`, // Add mobile flag
+            `${window.location.origin}/auth/sign-up-success?mobile=true`,
         },
       })
       if (error) throw error
@@ -87,17 +88,12 @@ export default function Page() {
         options: {
           redirectTo:
             process.env.NEXT_PUBLIC_SIGNUP_REDIRECT_URL ||
-            `${window.location.origin}/auth/sign-up-success?mobile=true`, // Mobile flag
+            `${window.location.origin}/auth/sign-up-success?mobile=true`,
           pkceVerifierStorage: 'cookie',
           flowType: 'pkce',
-          // Force mobile user-agent for OAuth flow
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Mobile Safari/537.36'
-          }
         },
       })
       if (error) throw error
-      // Force direct mobile redirect (bypass Next.js navigation)
       if (data?.url) window.location.replace(data.url)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Google sign-up failed - try clearing cache')
@@ -106,9 +102,30 @@ export default function Page() {
     }
   }
 
+  // ✅ NEW: Telegram OAuth handler
+  const handleTelegramSignUp = async () => {
+    setIsTelegramLoading(true)
+    setError(null)
+
+    try {
+      // Redirect to Telegram bot for OAuth
+      const telegramBotUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'KingMassageBot'
+      const redirectUrl = `${window.location.origin}/auth/telegram-callback`
+      
+      // Store redirect URL in session storage for callback
+      sessionStorage.setItem('telegramRedirect', 'signup')
+      
+      // Open Telegram OAuth flow
+      window.location.href = `https://t.me/${telegramBotUsername}?start=${encodeURIComponent(redirectUrl)}`
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Telegram sign-up failed')
+      setIsTelegramLoading(false)
+    }
+  }
+
   return (
     <div className="flex min-h-svh w-full items-center justify-center p-4 sm:p-6 bg-gray-50">
-      <div className="w-full max-w-xs sm:max-w-sm"> {/* Restrict max width for mobile */}
+      <div className="w-full max-w-xs sm:max-w-sm">
         <Card className="shadow-md w-full">
           <CardHeader>
             <CardTitle className="text-xl sm:text-2xl font-bold text-center">Sign up</CardTitle>
@@ -171,6 +188,7 @@ export default function Page() {
                 <div className="flex-1 h-px bg-gray-200"></div>
               </div>
 
+              {/* Google Button */}
               <Button
                 type="button"
                 onClick={handleGoogleSignUp}
@@ -179,6 +197,17 @@ export default function Page() {
               >
                 <FcGoogle className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 {isGoogleLoading ? 'Processing...' : 'Continue with Google'}
+              </Button>
+
+              {/* ✅ NEW: Telegram Button */}
+              <Button
+                type="button"
+                onClick={handleTelegramSignUp}
+                className="w-full bg-sky-500 hover:bg-sky-600 text-white font-medium text-sm py-2 transition-colors"
+                disabled={isTelegramLoading}
+              >
+                <SiTelegram className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                {isTelegramLoading ? 'Processing...' : 'Continue with Telegram'}
               </Button>
 
               <div className="mt-4 text-center text-xs sm:text-sm text-gray-600">
