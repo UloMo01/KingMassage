@@ -21,6 +21,14 @@ export function StepService() {
   // Validation: User must select a service and a base duration
   const isValid = !!formData.service && !!formData.duration
 
+  // ✅ PRICING MAP for extra minutes
+  const extraMinutePrices: { [key: number]: number } = {
+    0: 0,
+    15: 150,
+    30: 250,
+    45: 350
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* 1. Service Selection */}
@@ -92,29 +100,40 @@ export function StepService() {
         </div>
       </div>
 
-      {/* 3. Extra Time */}
+      {/* 3. Extra Time - ✅ NOW WITH PRICES */}
       <div className="space-y-4">
         <Label className="text-sm font-bold flex items-center gap-2 text-slate-800">
           <Plus className="h-4 w-4 text-emerald-600" />
           Extra Time (Optional)
         </Label>
         <div className="grid grid-cols-2 gap-3">
-          {EXTRA_MINUTES.map((extra) => (
-            <Button
-              key={extra.value}
-              variant="outline"
-              type="button"
-              onClick={() => updateFormData({ extraMinutes: extra.value })}
-              className={cn(
-                "h-12 rounded-xl border-slate-200 font-medium transition-all",
-                formData.extraMinutes === extra.value 
-                  ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-100" 
-                  : "bg-white text-slate-600 hover:bg-slate-50"
-              )}
-            >
-              {extra.label}
-            </Button>
-          ))}
+          {EXTRA_MINUTES.map((extra) => {
+            const price = extraMinutePrices[extra.value] || 0
+            return (
+              <Button
+                key={extra.value}
+                variant="outline"
+                type="button"
+                onClick={() => updateFormData({ extraMinutes: extra.value })}
+                className={cn(
+                  "h-16 rounded-xl border-slate-200 font-medium transition-all flex flex-col items-center justify-center",
+                  formData.extraMinutes === extra.value 
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-100" 
+                    : "bg-white text-slate-600 hover:bg-slate-50 hover:border-emerald-300"
+                )}
+              >
+                <span className="text-sm font-bold">{extra.label}</span>
+                <span className={cn(
+                  "text-xs font-semibold mt-1",
+                  formData.extraMinutes === extra.value 
+                    ? "text-emerald-100" 
+                    : "text-emerald-600"
+                )}>
+                  ₱{price}
+                </span>
+              </Button>
+            )
+          })}
         </div>
       </div>
 
