@@ -4,7 +4,8 @@ import { useBookingStore } from '@/lib/booking-store'
 import { createClient } from '@/lib/supabase/client' 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Calendar, User, CheckCircle, AlertCircle, Loader2, MessageSquare } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Calendar, User, CheckCircle, AlertCircle, Loader2, ArrowRight } from 'lucide-react'
 import { useState } from 'react' 
 import { useRouter } from 'next/navigation'
 import { format } from 'date-fns'
@@ -94,7 +95,7 @@ export function StepReview() {
       if (error) throw error
       
       setIsSuccess(true)
-      setModalText('Thank you! Your booking has been confirmed. We look forward to seeing you!')
+      setModalText('Your booking has been successfully saved. Our therapist will review and confirm within 24 hours.')
       resetForm() 
       
     } catch (err: any) {
@@ -208,7 +209,7 @@ export function StepReview() {
           Back
         </Button>
         <Button 
-          className="flex-1 bg-slate-900 hover:bg-black h-12 rounded-xl" 
+          className="flex-1 bg-slate-900 hover:bg-black h-12 rounded-xl transition-all hover:scale-105" 
           onClick={handleSubmit}
           disabled={isSubmitting}
         >
@@ -217,32 +218,63 @@ export function StepReview() {
         </Button>
       </div>
 
-      {/* Dynamic Feedback Modal */}
+      {/* ✅ ENHANCED: Dynamic Feedback Modal with Better UX */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-sm">
-          <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center">
-            <div className="flex justify-center mb-4">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100] backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl text-center animate-in zoom-in-95 slide-in-from-bottom-4 duration-300">
+            {/* Icon Section */}
+            <div className="flex justify-center mb-6">
               {isSubmitting ? (
-                <Loader2 className="h-14 w-14 text-emerald-500 animate-spin" />
+                <div className="relative w-16 h-16 flex items-center justify-center">
+                  <div className="absolute inset-0 bg-emerald-200/20 rounded-full blur-xl animate-pulse" />
+                  <Loader2 className="h-10 w-10 text-emerald-500 animate-spin relative" />
+                </div>
               ) : isSuccess ? (
-                <CheckCircle className="h-14 w-14 text-emerald-500" />
+                <div className="relative w-16 h-16 flex items-center justify-center animate-in scale-in-95 duration-500">
+                  <div className="absolute inset-0 bg-emerald-200/30 rounded-full blur-lg animate-pulse" />
+                  <CheckCircle className="h-10 w-10 text-emerald-500 relative" />
+                </div>
               ) : (
-                <AlertCircle className="h-14 w-14 text-red-500" />
+                <AlertCircle className="h-10 w-10 text-red-500" />
               )}
             </div>
             
-            <h3 className="text-xl font-bold mb-2">
-              {isSubmitting ? 'Processing...' : isSuccess ? 'Success!' : 'Error'}
+            {/* Title */}
+            <h3 className="text-2xl font-bold mb-3">
+              {isSubmitting ? '⏳ Processing...' : isSuccess ? '✨ Booking Confirmed!' : '⚠️ Booking Failed'}
             </h3>
             
-            <p className="text-slate-500 text-sm mb-8 leading-relaxed">{modalText}</p>
+            {/* Message */}
+            <p className="text-slate-600 text-sm mb-6 leading-relaxed font-medium">{modalText}</p>
+
+            {/* Success Badge */}
+            {!isSubmitting && isSuccess && (
+              <div className="mb-6 inline-block animate-in scale-in-95 duration-500">
+                <Badge className="bg-emerald-100 text-emerald-800 px-4 py-2 border border-emerald-300 text-xs font-bold whitespace-nowrap">
+                  🎉 Booking Saved Successfully
+                </Badge>
+              </div>
+            )}
             
+            {/* CTA Button */}
             {!isSubmitting && (
               <Button 
-                className={`w-full h-12 rounded-xl text-white ${isSuccess ? 'bg-emerald-600' : 'bg-red-500'}`} 
+                className={`w-full h-12 rounded-xl text-white font-bold transition-all hover:scale-105 ${
+                  isSuccess 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-200' 
+                    : 'bg-red-500 hover:bg-red-600'
+                }`} 
                 onClick={handleClose}
               >
-                {isSuccess ? 'View My Bookings' : 'Try Again'}
+                {isSuccess ? (
+                  <div className="flex items-center justify-center gap-2 w-full">
+                    <CheckCircle className="w-5 h-5" />
+                    View My Bookings
+                    <ArrowRight className="w-4 h-4" />
+                  </div>
+                ) : (
+                  'Try Again'
+                )}
               </Button>
             )}
           </div>
