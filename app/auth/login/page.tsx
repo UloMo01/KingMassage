@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { FcGoogle } from 'react-icons/fc'
 
 export default function Page() {
   const [email, setEmail] = useState('')
@@ -25,36 +24,34 @@ export default function Page() {
   const router = useRouter()
   const supabase = createClient()
 
-  // ✅ NEW: Load Telegram widget script
+  // ✅ Load Telegram widget
   useEffect(() => {
-    const script = document.createElement('script')
-    script.src = 'https://telegram.org/js/telegram-widget.js?23'
-    script.async = true
-    script.onload = () => {
-      // @ts-ignore - Telegram widget is a global
-      if (window.Telegram?.Login?.bind) {
+    const loadTelegramWidget = () => {
+      const script = document.createElement('script')
+      script.src = 'https://telegram.org/js/telegram-widget.js?23'
+      script.async = true
+      script.onload = () => {
         // @ts-ignore
-        window.Telegram.Login.bind(
-          document.getElementById('telegram-login-widget'),
-          'KingMassageBot',
-          {
-            size: 'medium',
-            onAuth: (user: any) => handleTelegramAuth(user),
-            requestAccess: 'write',
-          }
-        )
+        if (window.Telegram?.Login?.bind) {
+          // @ts-ignore
+          window.Telegram.Login.bind(
+            document.getElementById('telegram-login-widget'),
+            'KingMassageBot',
+            {
+              size: 'large',
+              onAuth: (user: any) => handleTelegramAuth(user),
+              requestAccess: 'write',
+            }
+          )
+        }
       }
+      document.body.appendChild(script)
     }
-    document.body.appendChild(script)
-    
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script)
-      }
-    }
+
+    loadTelegramWidget()
   }, [])
 
-  // ✅ NEW: Handle Telegram authentication
+  // ✅ Handle Telegram login
   const handleTelegramAuth = async (telegramUser: any) => {
     try {
       setIsLoading(true)
@@ -63,6 +60,7 @@ export default function Page() {
       const telegramId = telegramUser.id
       const telegramUsername = telegramUser.username || telegramUser.first_name
       const email = `telegram_${telegramId}@kingmassage.app`
+      const tempPassword = `telegram_${telegramId}_${Date.now()}`
 
       // Check if user exists
       const { data: existingUser } = await supabase
@@ -72,20 +70,22 @@ export default function Page() {
         .single()
 
       if (existingUser) {
-        // Try to sign in with Supabase
+        // Sign in existing user
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email,
-          password: `telegram_${telegramId}_password`,
+          password: tempPassword,
         })
 
-        if (signInError) {
+        if (signInError && signInError.message.includes('Invalid login credentials')) {
+          await supabase.auth.updateUser({ password: tempPassword })
+        } else if (signInError) {
           throw signInError
         }
       } else {
         // Create new user
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
-          password: `telegram_${telegramId}_password`,
+          password: tempPassword,
           options: {
             data: {
               telegram_id: telegramId,
@@ -196,10 +196,10 @@ export default function Page() {
                     />
                   </div>
                   {error && <p className="text-sm text-red-500">{error}</p>}
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full py-3" disabled={isLoading}>
                     {isLoading ? 'Logging in...' : 'Login'}
                   </Button>
-                  
+
                   <div className="flex items-center gap-2 py-2">
                     <div className="flex-1 h-px bg-gray-200"></div>
                     <span className="text-sm text-gray-500">Or continue with</span>
@@ -209,7 +209,7 @@ export default function Page() {
                   {/* Google Button */}
                   <Button
                     type="button"
-                    className="w-full bg-white border border-gray-300 text-gray-800 hover:bg-gray-50"
+                    className="w-full bg-white border border-gray-300 text-gray-800 hover:bg-gray-50 py-3"
                     onClick={handleGoogleLogin}
                     disabled={isGoogleLoading}
                   >
@@ -234,19 +234,21 @@ export default function Page() {
                     {isGoogleLoading ? 'Processing...' : 'Continue with Google'}
                   </Button>
 
-                  {/* ✅ NEW: Telegram Widget Container */}
+                  {/* ✅ TELEGRAM WIDGET - FIXED */}
                   <div className="flex items-center gap-2 py-2">
                     <div className="flex-1 h-px bg-gray-200"></div>
                     <span className="text-sm text-gray-500">Or</span>
                     <div className="flex-1 h-px bg-gray-200"></div>
                   </div>
 
-                  <div id="telegram-login-widget" className="flex justify-center">
+                  {/* Telegram Widget Container - INLINE SCRIPT */}
+                  <div className="flex justify-center">
+                    <div id="telegram-login-widget"></div>
                     <script
                       async
                       src="https://telegram.org/js/telegram-widget.js?23"
                       data-telegram-login="KingMassageBot"
-                      data-size="medium"
+                      data-size="large"
                       data-auth-url="https://kingmassage-2jw1.onrender.com/auth/telegram-callback"
                       data-request-access="write"
                     ></script>
