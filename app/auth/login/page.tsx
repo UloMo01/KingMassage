@@ -15,6 +15,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { FcGoogle } from 'react-icons/fc'
+import { SiTelegram } from 'react-icons/si'
 
 export default function Page() {
   const [email, setEmail] = useState('')
@@ -22,6 +23,7 @@ export default function Page() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isTelegramLoading, setIsTelegramLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -35,7 +37,6 @@ export default function Page() {
         email,
         password,
         options: {
-          // Use dedicated login env var for clarity
           emailRedirectTo:
             process.env.NEXT_PUBLIC_LOGIN_REDIRECT_URL ||
             `${window.location.origin}/book`,
@@ -58,7 +59,6 @@ export default function Page() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          // Match login redirect target
           redirectTo:
             process.env.NEXT_PUBLIC_LOGIN_REDIRECT_URL ||
             `${window.location.origin}/book`,
@@ -69,6 +69,24 @@ export default function Page() {
       setError(error instanceof Error ? error.message : 'Google login failed')
     } finally {
       setIsGoogleLoading(false)
+    }
+  }
+
+  // ✅ NEW: Telegram OAuth handler
+  const handleTelegramLogin = async () => {
+    setIsTelegramLoading(true)
+    setError(null)
+
+    try {
+      const telegramBotUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'KingMassageBot'
+      const redirectUrl = `${window.location.origin}/auth/telegram-callback`
+      
+      sessionStorage.setItem('telegramRedirect', 'login')
+      
+      window.location.href = `https://t.me/${telegramBotUsername}?start=${encodeURIComponent(redirectUrl)}`
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Telegram login failed')
+      setIsTelegramLoading(false)
     }
   }
 
@@ -114,6 +132,8 @@ export default function Page() {
                     <span className="text-sm text-gray-500">Or continue with</span>
                     <div className="flex-1 h-px bg-gray-200"></div>
                   </div>
+
+                  {/* Google Button */}
                   <Button
                     type="button"
                     className="w-full bg-white border border-gray-300 text-gray-800 hover:bg-gray-50"
@@ -122,6 +142,17 @@ export default function Page() {
                   >
                     <FcGoogle className="mr-2 h-5 w-5" />
                     {isGoogleLoading ? 'Processing...' : 'Continue with Google'}
+                  </Button>
+
+                  {/* ✅ NEW: Telegram Button */}
+                  <Button
+                    type="button"
+                    className="w-full bg-sky-500 hover:bg-sky-600 text-white transition-colors"
+                    onClick={handleTelegramLogin}
+                    disabled={isTelegramLoading}
+                  >
+                    <SiTelegram className="mr-2 h-5 w-5" />
+                    {isTelegramLoading ? 'Processing...' : 'Continue with Telegram'}
                   </Button>
                 </div>
               </form>
